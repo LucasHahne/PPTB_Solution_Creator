@@ -10,7 +10,9 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 - **Fast table design** — add multiple custom tables with ownership, notes, and activities settings.
 
-- **Spreadsheet-style column builder** — inline editing, per-type sensible defaults, duplicate rows, "add 5", and paste-from-clipboard bulk entry.
+- **Spreadsheet-style column builder** — inline editing, per-type sensible defaults, duplicate rows, and "add 5".
+
+- **Column schema JSON** — export the active table's columns as JSON, download or copy a sample template (with a full type reference), and import via file upload or paste with validation and merge-by-schema-name.
 
 - **All common column types** — single/multi-line text, email, URL, phone, whole number, decimal, currency, date, date & time, yes/no, and local choice.
 
@@ -30,7 +32,7 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 2. **Tables** — add custom tables and their primary name column.
 
-3. **Fields** — define columns per table.
+3. **Fields** — define columns per table, or bulk-import from a validated JSON schema.
 
 4. **Lookups** — add 1:N relationships.
 
@@ -47,6 +49,18 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 - The connected user needs the **System Customizer** (or System Administrator) role to create publishers, solutions, tables, columns, and relationships.
 
 ## Update history
+
+### 1.0.3
+
+- Added **column schema JSON** on the Fields step header:
+  - **Export schema** — download the active table's columns as JSON (types, attributes, and a `supportedTypes` reference catalog).
+  - **Download sample schema file** — save a ready-made template with example columns.
+  - **Copy sample schema** — copy the same template to the clipboard for quick editing.
+  - **Paste columns via template** — upload a `.json` file or paste JSON in a modal; columns are merged by schema name (update matches, add new, keep unmatched existing).
+
+- Import validates JSON structure, column types, naming rules, Dataverse bounds, and choice options before applying.
+
+- Removed the tab/comma text paste flow from the column toolbar.
 
 ### 1.0.2
 

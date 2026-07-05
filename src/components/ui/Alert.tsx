@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from './cn';
 
 type Tone = 'info' | 'success' | 'warning' | 'error';
@@ -10,17 +10,21 @@ const tones: Record<Tone, string> = {
   error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
 };
 
+interface AlertProps extends HTMLAttributes<HTMLDivElement> {
+  tone?: Tone;
+  title?: string;
+  children?: ReactNode;
+}
+
 export function Alert({
   tone = 'info',
   title,
   children,
-}: {
-  tone?: Tone;
-  title?: string;
-  children?: ReactNode;
-}) {
+  className,
+  ...props
+}: AlertProps) {
   return (
-    <div className={cn('rounded-md border px-3 py-2 text-sm', tones[tone])}>
+    <div className={cn('rounded-md border px-3 py-2 text-sm', tones[tone], className)} {...props}>
       {title && <p className="font-semibold">{title}</p>}
       {children && <div className={cn(title && 'mt-0.5')}>{children}</div>}
     </div>

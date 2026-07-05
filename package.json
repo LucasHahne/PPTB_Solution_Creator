@@ -1,6 +1,6 @@
 {
   "name": "@lucas001-yt/pptb-solution-creator",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "displayName": "Solution Creator",
   "description": "Design and deploy Dataverse tables, columns, and lookups into solutions fast.",
   "main": "index.html",

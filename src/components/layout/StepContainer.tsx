@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 export function StepContainer({
   title,
   description,
+  titleActions,
   actions,
   children,
   onBack,
@@ -13,6 +14,7 @@ export function StepContainer({
 }: {
   title: string;
   description?: string;
+  titleActions?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   onBack?: () => void;
@@ -24,7 +26,10 @@ export function StepContainer({
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-4 px-5 pt-4">
         <div>
-          <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">{title}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">{title}</h1>
+            {titleActions}
+          </div>
           {description && (
             <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>
           )}
