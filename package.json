@@ -8,14 +8,16 @@
   "license": "MIT",
   "contributors": [
     {
-      "name": "Power Platform Toolbox"
+      "name": "Lucas Hahne",
+      "email": "lucas.hahne@powerplatform.com"
     }
   ],
   "configurations": {
-    "repository": "https://github.com/yourorg/solution-creator",
-    "readmeUrl": "https://raw.githubusercontent.com/yourorg/solution-creator/main/README.md"
+    "repository": "https://github.com/LucasHahne/PPTB_Solution_Creator",
+    "readmeUrl": "https://raw.githubusercontent.com/LucasHahne/PPTB_Solution_Creator/refs/heads/main/README.md"
   },
   "features": {
+    "multiConnection": "optional",
     "minAPI": "1.0.20"
   },
   "keywords": [
@@ -34,7 +36,8 @@
     "preview": "vite preview",
     "watch": "vite build --watch",
     "dev-watch": "vite build --mode development --watch",
-    "finalize-package": "npm shrinkwrap"
+    "finalize-package": "npm shrinkwrap",
+    "validate": "pptb-validate"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.20.5",
@@ -51,6 +54,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
+    "@pptb/validate": "^0.0.7",
     "vite": "^7.1.11"
   },
   "files": [

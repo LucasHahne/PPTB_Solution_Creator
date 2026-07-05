@@ -30,4 +30,4 @@ A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-developmen
 
 ## License
 
-Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)
+[MIT License](https://github.com/LucasHahne/PPTB_Solution_Creator/blob/main/LICENSE)
