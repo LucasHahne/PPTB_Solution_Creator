@@ -22,40 +22,12 @@ A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-developmen
 
 > Many-to-many relationships are out of scope; Dataverse requires a bridge table for those.
 
-## Development
-
-This tool is built with React, TypeScript, and Tailwind CSS, and bundled with Vite as a single IIFE for the ToolBox sandboxed iframe.
-
-```bash
-npm install
-npm run build      # type-check + production build into dist/
-npm run watch      # rebuild on change while developing
-```
-
-### Testing in ToolBox
-
-1. Run `npm run watch`.
-2. In Power Platform ToolBox: Settings → enable **Show Debug Menu** → Save.
-3. Go to the Debug section → **Load Local Tool** → select this project's root folder.
-4. After changes, close and reopen the tool tab to pick them up.
-
-> The `window.toolboxAPI` and `window.dataverseAPI` globals only exist inside ToolBox, so `npm run dev` in a plain browser will not have live API access.
-
 ## Requirements
 
+- [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/) with an **active Dataverse connection** to the target environment.
 - ToolBox API **1.0.20+** (declared via `features.minAPI`) for the metadata create operations.
 - The connected user needs the **System Customizer** (or System Administrator) role to create publishers, solutions, tables, columns, and relationships.
 
-## Publishing
-
-```bash
-npm run build
-npm run finalize-package   # generates npm-shrinkwrap.json
-npm publish --access public
-```
-
-Then submit the package to the ToolBox registry. See the [publishing guide](https://docs.powerplatformtoolbox.com/tool-development) for details.
-
 ## License
 
-MIT
+Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)
