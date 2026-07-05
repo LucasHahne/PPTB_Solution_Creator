@@ -5,6 +5,7 @@ import { StepContainer } from '../layout/StepContainer';
 import { FieldGrid } from './FieldGrid';
 import { FieldConfigPanel } from './FieldConfigPanel';
 import { BulkPasteDialog } from './BulkPasteDialog';
+import { UnsupportedColumnTypesNote } from './UnsupportedColumnTypesNote';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
 import { Alert } from '../ui/Alert';
@@ -99,6 +100,10 @@ export function FieldsStep({ onBack, onNext }: { onBack: () => void; onNext: () 
           )}
         </div>
       )}
+
+      <div className="mt-4">
+        <UnsupportedColumnTypesNote />
+      </div>
 
       <BulkPasteDialog
         open={pasteOpen}

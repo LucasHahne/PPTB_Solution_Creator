@@ -54,6 +54,18 @@ export interface FieldTypeConfig {
   dateFormat?: 'DateOnly' | 'DateAndTime';
   /** Short hint shown in the UI. */
   hint?: string;
+  /** Minimum allowed max length (string/memo types). */
+  minMaxLength?: number;
+  /** Maximum allowed max length (string/memo types). */
+  maxMaxLength?: number;
+  /** Minimum allowed numeric bound. */
+  minValueLimit?: number;
+  /** Maximum allowed numeric bound. */
+  maxValueLimit?: number;
+  /** Minimum decimal precision. */
+  minPrecision?: number;
+  /** Maximum decimal precision. */
+  maxPrecision?: number;
 }
 
 export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
@@ -63,6 +75,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'String',
     supportsMaxLength: true,
     defaultMaxLength: 100,
+    minMaxLength: 1,
+    maxMaxLength: 4000,
     formatName: 'Text',
   },
   multiline: {
@@ -71,6 +85,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'Memo',
     supportsMaxLength: true,
     defaultMaxLength: 2000,
+    minMaxLength: 1,
+    maxMaxLength: 1_048_576,
     hint: 'Memo field rendered as a text area.',
   },
   email: {
@@ -79,6 +95,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'String',
     supportsMaxLength: true,
     defaultMaxLength: 100,
+    minMaxLength: 1,
+    maxMaxLength: 4000,
     formatName: 'Email',
   },
   url: {
@@ -87,6 +105,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'String',
     supportsMaxLength: true,
     defaultMaxLength: 200,
+    minMaxLength: 1,
+    maxMaxLength: 4000,
     formatName: 'Url',
   },
   phone: {
@@ -95,6 +115,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'String',
     supportsMaxLength: true,
     defaultMaxLength: 50,
+    minMaxLength: 1,
+    maxMaxLength: 4000,
     formatName: 'Phone',
   },
   wholeNumber: {
@@ -102,6 +124,8 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     label: 'Whole number',
     attributeType: 'Integer',
     supportsRange: true,
+    minValueLimit: -2_147_483_648,
+    maxValueLimit: 2_147_483_647,
   },
   decimal: {
     type: 'decimal',
@@ -109,6 +133,10 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'Decimal',
     supportsRange: true,
     supportsPrecision: true,
+    minValueLimit: 0,
+    maxValueLimit: 1_000_000_000,
+    minPrecision: 0,
+    maxPrecision: 10,
   },
   currency: {
     type: 'currency',
@@ -116,6 +144,10 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'Money',
     supportsRange: true,
     supportsPrecision: true,
+    minValueLimit: 0,
+    maxValueLimit: 1_000_000_000,
+    minPrecision: 0,
+    maxPrecision: 10,
   },
   dateOnly: {
     type: 'dateOnly',

@@ -7,6 +7,7 @@ import {
   isValidUniqueName,
   sanitizeSchemaToken,
 } from './namingService';
+import { validateFieldConstraints } from '../utils/fieldConstraints';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -135,6 +136,12 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[]) {
           issues.push({ step: 'fields', severity: 'error', message: `Duplicate option value ${opt.value} in "${fieldLabel}".` });
         }
         values.add(opt.value);
+      }
+    }
+
+    for (const constraint of validateFieldConstraints(field)) {
+      if (!constraint.valid && constraint.message) {
+        issues.push({ step: 'fields', severity: 'error', message: constraint.message });
       }
     }
   }
