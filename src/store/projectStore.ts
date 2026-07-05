@@ -4,6 +4,13 @@ import type { EntityDraft } from '../types/entity';
 import type { FieldDraft, FieldType } from '../types/field';
 import type { LookupRelationshipDraft } from '../types/relationship';
 import type { NewSolutionDraft, SolutionSummary } from '../types/solution';
+import type { ColumnSchemaEntry } from '../types/columnSchema';
+import {
+  applySchemaEntryToField,
+  normalizeFieldSchemaKey,
+  normalizeSchemaKey,
+  schemaEntryToFieldDraft,
+} from '../utils/columnSchema';
 import { newId } from '../utils/ids';
 import { FIELD_TYPE_CONFIGS } from '../constants/fieldTypes';
 import { toPascalToken } from '../services/namingService';
@@ -101,6 +108,7 @@ interface ProjectState {
   removeField: (tableId: string, fieldId: string) => void;
   duplicateField: (tableId: string, fieldId: string) => void;
   setPrimaryName: (tableId: string, fieldId: string) => void;
+  mergeFieldsFromSchema: (tableId: string, entries: ColumnSchemaEntry[]) => void;
 
   // Relationships
   addRelationship: (rel: LookupRelationshipDraft) => void;
@@ -312,6 +320,44 @@ export const useProjectStore = create<ProjectState>((set) => ({
               }
             : t,
         ),
+      },
+    })),
+
+  mergeFieldsFromSchema: (tableId, entries) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        tables: state.project.tables.map((t) => {
+          if (t.id !== tableId) return t;
+
+          const existingByKey = new Map(
+            t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
+          );
+
+          let fields = [...t.fields];
+          let primaryFieldId: string | null = null;
+
+          for (const entry of entries) {
+            const key = normalizeSchemaKey(entry);
+            const existing = existingByKey.get(key);
+            if (existing) {
+              const updated = applySchemaEntryToField(existing, entry);
+              fields = fields.map((f) => (f.id === existing.id ? updated : f));
+              if (entry.isPrimaryName) primaryFieldId = existing.id;
+            } else {
+              const created = schemaEntryToFieldDraft(entry);
+              fields.push(created);
+              existingByKey.set(key, created);
+              if (entry.isPrimaryName) primaryFieldId = created.id;
+            }
+          }
+
+          if (primaryFieldId) {
+            fields = fields.map((f) => ({ ...f, isPrimaryName: f.id === primaryFieldId }));
+          }
+
+          return { ...t, fields };
+        }),
       },
     })),
 
