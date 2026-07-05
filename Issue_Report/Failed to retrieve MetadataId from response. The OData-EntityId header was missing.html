@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Issue Report — Missing OData-EntityId Header on Metadata Creation</title>
+    <style>
+      :root {
+        --bg: #0f1419;
+        --surface: #161c24;
+        --surface-2: #1d242e;
+        --border: #2a323d;
+        --text: #e6edf3;
+        --text-dim: #9aa7b4;
+        --accent: #4f9cff;
+        --accent-soft: rgba(79, 156, 255, 0.12);
+        --danger: #ff6b6b;
+        --danger-soft: rgba(255, 107, 107, 0.12);
+        --success: #4ade80;
+        --success-soft: rgba(74, 222, 128, 0.12);
+        --warn: #fbbf24;
+        --warn-soft: rgba(251, 191, 36, 0.12);
+        --code-bg: #0b0f14;
+        --mono: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono",
+          Menlo, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.65;
+        font-size: 16px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        max-width: 1280px;
+        margin: 0 auto;
+        gap: 0;
+      }
+
+      /* Sidebar / TOC */
+      aside {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 32px 20px;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      aside .brand {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      aside h2 {
+        font-size: 15px;
+        margin: 0 0 20px;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      aside nav a {
+        display: block;
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 14px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border-left: 2px solid transparent;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      aside nav a:hover {
+        background: var(--accent-soft);
+        color: var(--text);
+        border-left-color: var(--accent);
+      }
+
+      aside nav .sub {
+        padding-left: 22px;
+        font-size: 13px;
+      }
+
+      /* Main */
+      main {
+        padding: 48px 56px 120px;
+        min-width: 0;
+      }
+
+      header.report-head {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 28px;
+        margin-bottom: 40px;
+      }
+
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 999px;
+        letter-spacing: 0.04em;
+      }
+
+      .pill.resolved {
+        background: var(--success-soft);
+        color: var(--success);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+      }
+
+      h1 {
+        font-size: 32px;
+        line-height: 1.2;
+        margin: 16px 0 12px;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        color: var(--text-dim);
+        font-size: 17px;
+        max-width: 70ch;
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }
+
+      .meta-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+
+      .meta-card .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
+
+      .meta-card .value {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      section {
+        margin-bottom: 52px;
+        scroll-margin-top: 24px;
+      }
+
+      h2.section-title {
+        font-size: 23px;
+        font-weight: 700;
+        margin: 0 0 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      h2.section-title .num {
+        font-size: 14px;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      h3 {
+        font-size: 18px;
+        margin: 28px 0 10px;
+        font-weight: 600;
+      }
+
+      p {
+        margin: 0 0 14px;
+      }
+
+      .text-dim {
+        color: var(--text-dim);
+      }
+
+      code.inline {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        padding: 1px 6px;
+        border-radius: 5px;
+        color: #d6b8ff;
+      }
+
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 13.5px;
+        line-height: 1.6;
+        margin: 0 0 18px;
+      }
+
+      pre code {
+        font-family: var(--mono);
+        white-space: pre;
+      }
+
+      .tok-key {
+        color: #ff9d72;
+      }
+      .tok-str {
+        color: #9ae67a;
+      }
+      .tok-com {
+        color: #6b7785;
+        font-style: italic;
+      }
+      .tok-fn {
+        color: #4f9cff;
+      }
+      .tok-kw {
+        color: #d6b8ff;
+      }
+
+      .callout {
+        border-radius: 10px;
+        padding: 16px 18px 16px 20px;
+        margin: 0 0 20px;
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        background: var(--surface);
+      }
+
+      .callout .callout-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .callout.danger {
+        border-left-color: var(--danger);
+        background: var(--danger-soft);
+      }
+      .callout.danger .callout-title {
+        color: var(--danger);
+      }
+
+      .callout.success {
+        border-left-color: var(--success);
+        background: var(--success-soft);
+      }
+      .callout.success .callout-title {
+        color: var(--success);
+      }
+
+      .callout.warn {
+        border-left-color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .callout.warn .callout-title {
+        color: var(--warn);
+      }
+
+      .callout.info {
+        border-left-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .callout.info .callout-title {
+        color: var(--accent);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 20px;
+        font-size: 14.5px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 11px 14px;
+        border: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--surface-2);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-dim);
+      }
+
+      tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.015);
+      }
+
+      /* Sequence flow */
+      .flow {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin: 0 0 20px;
+      }
+
+      .flow-step {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        position: relative;
+        padding-bottom: 22px;
+      }
+
+      .flow-step:not(:last-child)::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 32px;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+      }
+
+      .flow-dot {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--surface-2);
+        border: 2px solid var(--border);
+        z-index: 1;
+      }
+
+      .flow-step.ok .flow-dot {
+        border-color: var(--success);
+        color: var(--success);
+      }
+      .flow-step.fail .flow-dot {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      .flow-step .flow-body {
+        padding-top: 4px;
+      }
+      .flow-step .flow-body strong {
+        display: block;
+        margin-bottom: 2px;
+      }
+      .flow-step .flow-body span {
+        color: var(--text-dim);
+        font-size: 14px;
+      }
+
+      .diff-add {
+        color: var(--success);
+      }
+      .diff-del {
+        color: var(--danger);
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding-top: 24px;
+        color: var(--text-dim);
+        font-size: 13px;
+      }
+
+      .file-tag {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 6px 6px 0 0;
+        border-bottom: none;
+        padding: 6px 12px;
+        display: inline-block;
+        margin-bottom: -1px;
+      }
+
+      .file-tag + pre {
+        border-top-left-radius: 0;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: static;
+          height: auto;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+        main {
+          padding: 32px 22px 80px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside>
+        <div class="brand">Solution Creator</div>
+        <h2>Issue Report</h2>
+        <nav>
+          <a href="#summary">Executive Summary</a>
+          <a href="#symptoms">1. Symptoms</a>
+          <a href="#architecture">2. Architecture Context</a>
+          <a href="#rootcause">3. Root Cause</a>
+          <a href="#why-header" class="sub">3.1 The missing header</a>
+          <a href="#why-created" class="sub">3.2 Why the record exists</a>
+          <a href="#impact">4. Impact</a>
+          <a href="#fix">5. The Fix</a>
+          <a href="#fix-detect" class="sub">5.1 Error detection</a>
+          <a href="#fix-recover" class="sub">5.2 Recovery lookups</a>
+          <a href="#fix-idempotent" class="sub">5.3 Idempotency</a>
+          <a href="#fix-clone" class="sub">5.4 Clone guard</a>
+          <a href="#validation">6. Validation</a>
+          <a href="#takeaways">7. Takeaways</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="report-head">
+          <span class="pill resolved">● Resolved</span>
+          <h1>
+            Deployment aborts: &ldquo;Failed to retrieve MetadataId from
+            response. The OData-EntityId header was missing.&rdquo;
+          </h1>
+          <p class="subtitle">
+            A technical post-mortem of why table and column creation aborted
+            mid-deployment in the Solution Creator tool, even though the records
+            were successfully created in Dataverse — and how the orchestrator
+            was made resilient and idempotent.
+          </p>
+
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="label">Component</div>
+              <div class="value">Deployment Orchestrator</div>
+            </div>
+            <div class="meta-card">
+              <div class="label">Severity</div>
+              <div class="value">High — blocks deploys</div>
+            </div>
+            <div class="meta-card">
+              <div class="label">Layer</div>
+              <div class="value">Host IPC / Dataverse API</div>
+            </div>
+            <div class="meta-card">
+              <div class="label">Status</div>
+              <div class="value" style="color: var(--success)">Fixed</div>
+            </div>
+          </div>
+        </header>
+
+        <!-- SUMMARY -->
+        <section id="summary">
+          <h2 class="section-title">Executive Summary</h2>
+          <p>
+            During a solution deployment, the tool issues a sequence of Dataverse
+            metadata operations &mdash; create publisher, create solution, create
+            tables, create columns, create relationships, publish. Two of these
+            calls,
+            <code class="inline">createEntityDefinition</code> (table) and
+            <code class="inline">createAttribute</code> (column), began throwing:
+          </p>
+          <pre><code>Error invoking remote method 'dataverse.createAttribute':
+Error: Create attribute failed: Failed to retrieve attribute MetadataId
+from response. The OData-EntityId header was missing.</code></pre>
+          <p>
+            The critical insight: <strong>the table and the column were actually
+            created successfully in Dataverse.</strong> The error was raised
+            <em>after</em> the write, by the Power Platform ToolBox host while
+            trying to read the new record's <code class="inline">MetadataId</code>
+            out of the HTTP response. Because the host throws, our orchestrator
+            treats the whole step as failed and aborts &mdash; leaving a partially
+            built solution and a confusing error.
+          </p>
+          <div class="callout success">
+            <div class="callout-title">Resolution in one line</div>
+            We detect this specific post-write failure, recover the real
+            <code class="inline">MetadataId</code> by looking the just-created
+            object up by its logical name, and continue. We also made every step
+            idempotent so re-running a partial deployment is always safe.
+          </div>
+        </section>
+
+        <!-- SYMPTOMS -->
+        <section id="symptoms">
+          <h2 class="section-title"><span class="num">1</span> Symptoms</h2>
+          <p>The failure was observed twice, on two different operations:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Operation</th>
+                <th>What the user saw</th>
+                <th>Reality in Dataverse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>First</td>
+                <td><code class="inline">createEntityDefinition</code></td>
+                <td>
+                  Primary column reported created, then
+                  <em>&ldquo;The OData-EntityId header was missing&rdquo;</em>;
+                  no further columns created.
+                </td>
+                <td>
+                  Table <strong>and</strong> its primary name column existed.
+                </td>
+              </tr>
+              <tr>
+                <td>Second</td>
+                <td><code class="inline">createAttribute</code></td>
+                <td>
+                  First whole-number column created, second one aborted with the
+                  same header error.
+                </td>
+                <td>
+                  Both whole-number columns existed; only the third was never
+                  attempted.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout info">
+            <div class="callout-title">Key tell</div>
+            The records always existed in the environment afterwards. That rules
+            out a malformed payload or a permissions problem &mdash; the write
+            half of the request succeeded every time. The fault was entirely in
+            the <em>response-reading</em> half.
+          </div>
+        </section>
+
+        <!-- ARCHITECTURE -->
+        <section id="architecture">
+          <h2 class="section-title">
+            <span class="num">2</span> Architecture Context
+          </h2>
+          <p>
+            The tool runs as a sandboxed web app inside an
+            <code class="inline">&lt;iframe&gt;</code> hosted by the Power Platform
+            ToolBox desktop app. The tool never talks to Dataverse directly.
+            Instead it calls <code class="inline">window.dataverseAPI.*</code>,
+            which marshals the request across the iframe&rarr;host boundary
+            (Electron IPC). The host performs the authenticated HTTP call to the
+            Dataverse Web API and marshals a result back.
+          </p>
+          <pre><code>Tool (iframe)                Host (Electron)              Dataverse Web API
+─────────────                ───────────────              ─────────────────
+dataverseAPI                 ipc handler                  POST /api/data/v9.x/
+ .createAttribute(...)  ──▶  'dataverse.createAttribute'  EntityDefinitions(..)/Attributes
+                                       │                            │
+                                       │   HTTP 204 No Content      │
+                                       │   OData-EntityId: <url>  ◀─┘
+                                       │
+                          reads MetadataId from the
+                          OData-EntityId response header
+                                       │
+   { id } / throw  ◀──────────────────┘</code></pre>
+          <p class="text-dim">
+            When a metadata record is created, Dataverse returns
+            <code class="inline">204 No Content</code> with no body; the new
+            record's GUID is delivered <em>only</em> in the
+            <code class="inline">OData-EntityId</code> response header. The host
+            parses the GUID out of that header to populate the
+            <code class="inline">{ id }</code> it returns to the tool.
+          </p>
+        </section>
+
+        <!-- ROOT CAUSE -->
+        <section id="rootcause">
+          <h2 class="section-title">
+            <span class="num">3</span> Root Cause
+          </h2>
+
+          <h3 id="why-header">3.1 The header the host depends on was absent</h3>
+          <p>
+            The host's <code class="inline">createEntityDefinition</code> /
+            <code class="inline">createAttribute</code> implementation has a hard
+            dependency on the <code class="inline">OData-EntityId</code> response
+            header to extract the new <code class="inline">MetadataId</code>. In
+            this environment the header was not present on the response, so the
+            host threw before it could return an id. Common reasons the header is
+            absent on an otherwise-successful metadata POST include:
+          </p>
+          <ul>
+            <li>
+              The response was an empty <code class="inline">204</code> whose
+              header set differed from what the host expects (gateway / proxy
+              header stripping, casing, or exposed-header filtering).
+            </li>
+            <li>
+              The host attempts to read the header in a way that does not match
+              how it was returned for these particular metadata endpoints.
+            </li>
+          </ul>
+          <p>
+            From the tool's perspective the cause is external and not fixable by
+            changing the payload &mdash; but it is <em>detectable</em> and
+            <em>recoverable</em>.
+          </p>
+
+          <h3 id="why-created">3.2 Why the record nonetheless exists</h3>
+          <p>
+            The Dataverse server commits the metadata change and returns
+            <code class="inline">204 Created/No Content</code> before the header
+            is ever read by the host. The header-read step is purely a
+            client-side convenience to surface the new GUID. Therefore the
+            exception is raised <strong>strictly after</strong> the durable write
+            &mdash; the table/column is already persisted. This is why every
+            failed step still showed up in the maker portal.
+          </p>
+          <div class="callout danger">
+            <div class="callout-title">The real bug in our tool</div>
+            Our orchestrator treated &ldquo;host could not read the id&rdquo; as
+            &ldquo;the operation failed,&rdquo; aborting the deployment. The two
+            are not the same. A post-write read failure must not be fatal when the
+            write itself succeeded.
+          </div>
+        </section>
+
+        <!-- IMPACT -->
+        <section id="impact">
+          <h2 class="section-title"><span class="num">4</span> Impact</h2>
+          <ul>
+            <li>
+              <strong>Deployments aborted non-deterministically</strong> at the
+              first table or column whose response lacked the header.
+            </li>
+            <li>
+              <strong>Partial, inconsistent solutions</strong> were left in the
+              environment (table created, only some columns created).
+            </li>
+            <li>
+              <strong>Retries made it worse</strong> before the fix: re-running
+              hit &ldquo;object already exists&rdquo; errors on the records that
+              had in fact been created, so there was no clean path forward.
+            </li>
+          </ul>
+        </section>
+
+        <!-- FIX -->
+        <section id="fix">
+          <h2 class="section-title"><span class="num">5</span> The Fix</h2>
+          <p>
+            The fix has four parts, all in
+            <code class="inline">src/services/metadataService.ts</code> and
+            <code class="inline">src/services/deploymentOrchestrator.ts</code>.
+          </p>
+
+          <h3 id="fix-detect">5.1 Precisely detect the post-write failure</h3>
+          <p>
+            We only want to recover from <em>this</em> error &mdash; not mask
+            genuine failures. A narrow matcher keys on both signature phrases
+            (&ldquo;MetadataId&rdquo; and &ldquo;OData-EntityId&rdquo;), which
+            covers both the entity and attribute wording.
+          </p>
+          <span class="file-tag">src/services/metadataService.ts</span>
+          <pre><code><span class="tok-kw">function</span> <span class="tok-fn">isMissingEntityIdHeaderError</span>(error: <span class="tok-kw">unknown</span>): <span class="tok-kw">boolean</span> {
+  <span class="tok-kw">const</span> message = error <span class="tok-kw">instanceof</span> Error ? error.message : String(error);
+  <span class="tok-kw">return</span> <span class="tok-str">/MetadataId/i</span>.test(message) &amp;&amp; <span class="tok-str">/OData-EntityId/i</span>.test(message);
+}</code></pre>
+
+          <h3 id="fix-recover">5.2 Recover the real MetadataId by lookup</h3>
+          <p>
+            When the matcher fires, we ask Dataverse for the object we just
+            created and read its <code class="inline">MetadataId</code> directly
+            &mdash; turning the opaque failure into a successful, fully-correct
+            result. Tables are looked up with
+            <code class="inline">getEntityMetadata</code>; columns with
+            <code class="inline">getEntityRelatedMetadata</code> using the
+            <code class="inline">Attributes(LogicalName='…')</code> path.
+          </p>
+          <span class="file-tag">src/services/metadataService.ts</span>
+          <pre><code><span class="tok-kw">export async function</span> <span class="tok-fn">createColumn</span>(
+  entityLogicalName: <span class="tok-kw">string</span>,
+  definition: Record&lt;<span class="tok-kw">string</span>, <span class="tok-kw">unknown</span>&gt;,
+  solutionUniqueName: <span class="tok-kw">string</span>,
+  columnLogicalName?: <span class="tok-kw">string</span>,
+): Promise&lt;<span class="tok-kw">string</span>&gt; {
+  <span class="tok-kw">try</span> {
+    <span class="tok-kw">const</span> result = <span class="tok-kw">await</span> window.dataverseAPI.<span class="tok-fn">createAttribute</span>(
+      entityLogicalName, definition, <span class="tok-fn">options</span>(solutionUniqueName),
+    );
+    <span class="tok-kw">return</span> result.id;
+  } <span class="tok-kw">catch</span> (error) {
+    <span class="tok-com">// The write succeeded; the host just couldn't read the id header.</span>
+    <span class="tok-kw">if</span> (columnLogicalName &amp;&amp; <span class="tok-fn">isMissingEntityIdHeaderError</span>(error)) {
+      <span class="tok-kw">const</span> recoveredId = <span class="tok-kw">await</span> <span class="tok-fn">findAttributeMetadataId</span>(
+        entityLogicalName, columnLogicalName,
+      );
+      <span class="tok-kw">if</span> (recoveredId) <span class="tok-kw">return</span> recoveredId;
+    }
+    <span class="tok-kw">throw</span> error;
+  }
+}</code></pre>
+          <p class="text-dim">
+            The table path (<code class="inline">createTable</code>) uses the same
+            try/recover/rethrow shape, recovering via
+            <code class="inline">findEntityMetadataId</code>.
+          </p>
+
+          <h3 id="fix-idempotent">5.3 Make every step idempotent</h3>
+          <p>
+            So a partially-completed deployment can always be safely re-run, the
+            orchestrator now checks for existence before creating, and skips what
+            already exists &mdash; for the publisher, the solution, each table,
+            and each column.
+          </p>
+          <span class="file-tag">src/services/deploymentOrchestrator.ts</span>
+          <pre><code><span class="tok-com">// Tables: skip those that already exist.</span>
+<span class="tok-kw">for</span> (<span class="tok-kw">const</span> entity <span class="tok-kw">of</span> project.tables) {
+  <span class="tok-kw">const</span> logicalName = <span class="tok-fn">tableLogicalName</span>(prefix, entity);
+  <span class="tok-kw">const</span> existingId = <span class="tok-kw">await</span> <span class="tok-fn">findEntityMetadataId</span>(logicalName);
+  <span class="tok-kw">if</span> (existingId) {
+    <span class="tok-fn">log</span>(<span class="tok-str">'info'</span>, <span class="tok-str">`Table "${entity.displayName}" already exists — reusing it.`</span>);
+    <span class="tok-kw">continue</span>;
+  }
+  <span class="tok-com">/* ...create with recovery... */</span>
+}
+
+<span class="tok-com">// Columns: skip those already present on the table.</span>
+<span class="tok-kw">const</span> existingColumns = <span class="tok-kw">await</span> <span class="tok-fn">listColumnLogicalNames</span>(logicalName);
+<span class="tok-kw">for</span> (<span class="tok-kw">const</span> field <span class="tok-kw">of</span> columns) {
+  <span class="tok-kw">const</span> columnLogicalName = <span class="tok-fn">buildLogicalName</span>(prefix, field.schemaName);
+  <span class="tok-kw">if</span> (existingColumns.has(columnLogicalName)) {
+    <span class="tok-fn">log</span>(<span class="tok-str">'info'</span>, <span class="tok-str">`Column "${field.displayName}" already exists — skipping.`</span>);
+    <span class="tok-kw">continue</span>;
+  }
+  <span class="tok-com">/* ...create with recovery... */</span>
+}</code></pre>
+
+          <h3 id="fix-clone">5.4 Bonus: a structured-clone guard</h3>
+          <p>
+            A related earlier failure was the opaque
+            <em>&ldquo;An object could not be cloned&rdquo;</em> raised when a
+            non-serializable value crosses the iframe&rarr;host
+            <code class="inline">postMessage</code> boundary. We hardened against
+            it by (a) using literal
+            <code class="inline">@odata.type</code> strings instead of a host
+            helper whose return value was not guaranteed clone-safe, and (b)
+            verifying each payload with
+            <code class="inline">structuredClone</code> before sending, so a bad
+            value names itself instead of producing a cryptic error.
+          </p>
+          <span class="file-tag">src/services/deploymentOrchestrator.ts</span>
+          <pre><code><span class="tok-kw">function</span> <span class="tok-fn">assertCloneable</span>(label: <span class="tok-kw">string</span>, payload: <span class="tok-kw">unknown</span>): <span class="tok-kw">void</span> {
+  <span class="tok-kw">try</span> {
+    <span class="tok-fn">structuredClone</span>(payload);
+  } <span class="tok-kw">catch</span> (error) {
+    console.<span class="tok-fn">error</span>(<span class="tok-str">`[Solution Creator] ${label} is not structured-clone-safe:`</span>, payload, error);
+    <span class="tok-kw">throw new</span> <span class="tok-fn">Error</span>(<span class="tok-str">`The ${label} payload contains a value that cannot be sent to Dataverse.`</span>);
+  }
+}</code></pre>
+        </section>
+
+        <!-- VALIDATION -->
+        <section id="validation">
+          <h2 class="section-title">
+            <span class="num">6</span> Behaviour After the Fix
+          </h2>
+          <p>
+            With recovery + idempotency, a single deployment now completes through
+            the header anomaly, and any retry resumes cleanly:
+          </p>
+          <div class="flow">
+            <div class="flow-step ok">
+              <span class="flow-dot">✓</span>
+              <div class="flow-body">
+                <strong>Create table &rarr; header missing</strong>
+                <span
+                  >Recovered <code class="inline">MetadataId</code> via
+                  <code class="inline">getEntityMetadata</code>; deployment
+                  continues instead of aborting.</span
+                >
+              </div>
+            </div>
+            <div class="flow-step ok">
+              <span class="flow-dot">✓</span>
+              <div class="flow-body">
+                <strong>Create column #1 &rarr; header missing</strong>
+                <span
+                  >Recovered via
+                  <code class="inline">Attributes(LogicalName='…')</code> lookup;
+                  proceeds to next column.</span
+                >
+              </div>
+            </div>
+            <div class="flow-step ok">
+              <span class="flow-dot">✓</span>
+              <div class="flow-body">
+                <strong>Re-run after a partial deploy</strong>
+                <span
+                  >Existing table and columns are detected and skipped; only
+                  missing items are created.</span
+                >
+              </div>
+            </div>
+            <div class="flow-step ok">
+              <span class="flow-dot">✓</span>
+              <div class="flow-body">
+                <strong>Publish customizations</strong>
+                <span>Deployment finishes; all columns present.</span>
+              </div>
+            </div>
+          </div>
+          <div class="callout success">
+            <div class="callout-title">Verified</div>
+            User confirmed (&ldquo;Works&rdquo;) that all three whole-number
+            columns and the table now deploy successfully. Project builds clean
+            (<code class="inline">tsc</code> + <code class="inline">vite</code>,
+            exit 0).
+          </div>
+        </section>
+
+        <!-- TAKEAWAYS -->
+        <section id="takeaways">
+          <h2 class="section-title">
+            <span class="num">7</span> Engineering Takeaways
+          </h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Principle</th>
+                <th>Why it mattered here</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Separate &ldquo;write failed&rdquo; from &ldquo;read failed&rdquo;</td>
+                <td>
+                  A post-commit response-parsing error must not be treated as a
+                  failed mutation. We recover the result rather than aborting.
+                </td>
+              </tr>
+              <tr>
+                <td>Design metadata writes to be idempotent</td>
+                <td>
+                  Schema operations are not transactional and cannot be rolled
+                  back. Existence checks make every step safe to repeat.
+                </td>
+              </tr>
+              <tr>
+                <td>Narrow your error matching</td>
+                <td>
+                  Recovery is gated on a specific signature so genuine errors
+                  (bad payload, permissions, duplicates) still surface.
+                </td>
+              </tr>
+              <tr>
+                <td>Validate IPC payloads at the boundary</td>
+                <td>
+                  <code class="inline">structuredClone</code> guards turn opaque
+                  &ldquo;could not be cloned&rdquo; failures into named,
+                  actionable errors.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <footer>
+          Solution Creator &mdash; Internal Issue Report &middot; Generated for the
+          Power Platform ToolBox deployment pipeline. Files referenced:
+          <code class="inline">src/services/metadataService.ts</code>,
+          <code class="inline">src/services/deploymentOrchestrator.ts</code>.
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

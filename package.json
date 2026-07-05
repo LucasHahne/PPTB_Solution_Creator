@@ -1,0 +1,59 @@
+{
+  "name": "@powerplatform/solution-creator",
+  "version": "1.0.0",
+  "displayName": "Solution Creator",
+  "description": "Design and deploy Dataverse tables, columns, and lookups into solutions fast.",
+  "main": "index.html",
+  "icon": "icons/solution-creator.svg",
+  "license": "MIT",
+  "contributors": [
+    {
+      "name": "Power Platform Toolbox"
+    }
+  ],
+  "configurations": {
+    "repository": "https://github.com/yourorg/solution-creator",
+    "readmeUrl": "https://raw.githubusercontent.com/yourorg/solution-creator/main/README.md"
+  },
+  "features": {
+    "minAPI": "1.0.20"
+  },
+  "keywords": [
+    "powerplatform",
+    "dataverse",
+    "toolbox",
+    "solution",
+    "schema"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "watch": "vite build --watch",
+    "dev-watch": "vite build --mode development --watch",
+    "finalize-package": "npm shrinkwrap"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.20.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@pptb/types": "^1.0.17",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3",
+    "vite": "^7.1.11"
+  },
+  "files": [
+    "dist"
+  ]
+}
