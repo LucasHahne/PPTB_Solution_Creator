@@ -1,6 +1,6 @@
 {
-  "name": "@powerplatform/solution-creator",
-  "version": "1.0.0",
+  "name": "@lucas001-yt/pptb-solution-creator",
+  "version": "1.0.1",
   "displayName": "Solution Creator",
   "description": "Design and deploy Dataverse tables, columns, and lookups into solutions fast.",
   "main": "index.html",
@@ -9,11 +9,12 @@
   "contributors": [
     {
       "name": "Lucas Hahne",
-      "email": "lucas.hahne@powerplatform.com"
+      "url": "https://github.com/LucasHahne"
     }
   ],
   "configurations": {
     "repository": "https://github.com/LucasHahne/PPTB_Solution_Creator",
+    "website": "https://github.com/LucasHahne/PPTB_Solution_Creator",
     "readmeUrl": "https://raw.githubusercontent.com/LucasHahne/PPTB_Solution_Creator/refs/heads/main/README.md"
   },
   "features": {
@@ -58,6 +59,7 @@
     "vite": "^7.1.11"
   },
   "files": [
-    "dist"
+    "dist",
+    "npm-shrinkwrap.json"
   ]
 }
