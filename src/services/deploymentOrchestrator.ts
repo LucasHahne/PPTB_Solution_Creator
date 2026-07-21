@@ -7,6 +7,7 @@ import {
   createOneToMany,
   createTable,
   findEntityMetadataId,
+  findRelationshipMetadataId,
   listColumnLogicalNames,
   publishAll,
 } from './metadataService';
@@ -118,7 +119,8 @@ export async function deployProject(
       }
     }
 
-    // Relationships (1:N lookups).
+    // Relationships (1:N lookups). Skip ones that already exist so retries after a
+    // partial deploy (including the OData-EntityId header quirk) are safe.
     for (const rel of project.relationships) {
       const resolved = resolveRelationship(prefix, project, rel);
       if (!resolved) {
@@ -126,8 +128,24 @@ export async function deployProject(
         continue;
       }
       const definition = buildOneToManyRelationship(prefix, rel, resolved);
+      const relationshipSchemaName = String(definition.SchemaName ?? '');
+      if (relationshipSchemaName) {
+        const existingRel = await findRelationshipMetadataId(
+          resolved.parentLogicalName,
+          relationshipSchemaName,
+        );
+        if (existingRel) {
+          log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+          continue;
+        }
+      }
       assertCloneable(`lookup "${rel.lookupDisplayName}"`, definition);
-      await createOneToMany(definition, solutionUniqueName);
+      await createOneToMany(
+        definition,
+        solutionUniqueName,
+        resolved.parentLogicalName,
+        relationshipSchemaName || undefined,
+      );
       result.createdRelationships += 1;
       log('success', `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`);
     }
