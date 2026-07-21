@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { SolutionProject, WizardStep } from '../types/project';
 import type { EntityDraft } from '../types/entity';
 import type { FieldDraft, FieldType } from '../types/field';
+import type { GlobalChoiceDraft } from '../types/globalChoice';
 import type { LookupRelationshipDraft } from '../types/relationship';
 import type { NewSolutionDraft, SolutionSummary } from '../types/solution';
 import type { ColumnSchemaEntry } from '../types/columnSchema';
@@ -27,6 +28,16 @@ function emptyProject(): SolutionProject {
     },
     tables: [],
     relationships: [],
+    globalChoices: [],
+  };
+}
+
+/** Normalize a loaded draft so newer optional collections are always present. */
+function normalizeProject(project: SolutionProject): SolutionProject {
+  return {
+    ...project,
+    relationships: project.relationships ?? [],
+    globalChoices: project.globalChoices ?? [],
   };
 }
 
@@ -61,8 +72,23 @@ export function makeField(type: FieldType, displayName = ''): FieldDraft {
       { id: newId(), value: 2, label: 'Option 2' },
     ];
   }
+  if (config.supportsMaxSize) field.maxSizeInKB = config.defaultMaxSizeInKB;
+  if (config.supportsAutoNumber) field.autoNumberFormat = config.defaultAutoNumberFormat;
   if (type === 'boolean') field.defaultBoolean = false;
   return field;
+}
+
+/** Build a new global choice draft with two starter options. */
+export function makeGlobalChoice(displayName = ''): GlobalChoiceDraft {
+  return {
+    id: newId(),
+    displayName,
+    schemaName: displayName ? toPascalToken(displayName) : '',
+    options: [
+      { id: newId(), value: 1, label: 'Option 1' },
+      { id: newId(), value: 2, label: 'Option 2' },
+    ],
+  };
 }
 
 function makeTable(displayName = ''): EntityDraft {
@@ -114,6 +140,11 @@ interface ProjectState {
   addRelationship: (rel: LookupRelationshipDraft) => void;
   updateRelationship: (id: string, patch: Partial<LookupRelationshipDraft>) => void;
   removeRelationship: (id: string) => void;
+
+  // Global choices
+  addGlobalChoice: (choice?: GlobalChoiceDraft) => string;
+  updateGlobalChoice: (id: string, patch: Partial<GlobalChoiceDraft>) => void;
+  removeGlobalChoice: (id: string) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -124,12 +155,14 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   setStep: (step) => set({ currentStep: step }),
 
-  hydrate: (project) =>
+  hydrate: (project) => {
+    const normalized = normalizeProject(project);
     set({
-      project,
+      project: normalized,
       hydrated: true,
-      selectedTableId: project.tables[0]?.id ?? null,
-    }),
+      selectedTableId: normalized.tables[0]?.id ?? null,
+    });
+  },
 
   markHydrated: () => set({ hydrated: true }),
 
@@ -330,6 +363,23 @@ export const useProjectStore = create<ProjectState>((set) => ({
         tables: state.project.tables.map((t) => {
           if (t.id !== tableId) return t;
 
+          // Resolve global choice references (carried by name in schema JSON) to
+          // the project's global choice ids.
+          const globalChoiceIdByKey = new Map(
+            state.project.globalChoices.map(
+              (c) =>
+                [
+                  (c.schemaName || toPascalToken(c.displayName)).toLowerCase(),
+                  c.id,
+                ] as const,
+            ),
+          );
+          const resolveGlobalChoice = (field: FieldDraft, name?: string): FieldDraft => {
+            if (field.type !== 'globalChoice' || !name) return field;
+            const id = globalChoiceIdByKey.get(toPascalToken(name).toLowerCase());
+            return id ? { ...field, globalChoiceId: id } : field;
+          };
+
           const existingByKey = new Map(
             t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
           );
@@ -341,11 +391,17 @@ export const useProjectStore = create<ProjectState>((set) => ({
             const key = normalizeSchemaKey(entry);
             const existing = existingByKey.get(key);
             if (existing) {
-              const updated = applySchemaEntryToField(existing, entry);
+              const updated = resolveGlobalChoice(
+                applySchemaEntryToField(existing, entry),
+                entry.globalChoiceName,
+              );
               fields = fields.map((f) => (f.id === existing.id ? updated : f));
               if (entry.isPrimaryName) primaryFieldId = existing.id;
             } else {
-              const created = schemaEntryToFieldDraft(entry);
+              const created = resolveGlobalChoice(
+                schemaEntryToFieldDraft(entry),
+                entry.globalChoiceName,
+              );
               fields.push(created);
               existingByKey.set(key, created);
               if (entry.isPrimaryName) primaryFieldId = created.id;
@@ -381,6 +437,42 @@ export const useProjectStore = create<ProjectState>((set) => ({
       project: {
         ...state.project,
         relationships: state.project.relationships.filter((r) => r.id !== id),
+      },
+    })),
+
+  addGlobalChoice: (choice) => {
+    const created = choice ?? makeGlobalChoice();
+    set((state) => ({
+      project: {
+        ...state.project,
+        globalChoices: [...state.project.globalChoices, created],
+      },
+    }));
+    return created.id;
+  },
+
+  updateGlobalChoice: (id, patch) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        globalChoices: state.project.globalChoices.map((c) =>
+          c.id === id ? { ...c, ...patch } : c,
+        ),
+      },
+    })),
+
+  removeGlobalChoice: (id) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        globalChoices: state.project.globalChoices.filter((c) => c.id !== id),
+        // Clear any column references to the removed global choice.
+        tables: state.project.tables.map((t) => ({
+          ...t,
+          fields: t.fields.map((f) =>
+            f.globalChoiceId === id ? { ...f, globalChoiceId: undefined } : f,
+          ),
+        })),
       },
     })),
 }));

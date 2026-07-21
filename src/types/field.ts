@@ -1,4 +1,4 @@
-/** Supported column types for v1 of the Solution Creator. */
+/** Supported column types for the Solution Creator. */
 export type FieldType =
   | 'text'
   | 'multiline'
@@ -6,12 +6,19 @@ export type FieldType =
   | 'url'
   | 'phone'
   | 'wholeNumber'
+  | 'bigint'
   | 'decimal'
+  | 'double'
   | 'currency'
   | 'dateOnly'
   | 'dateTime'
   | 'boolean'
   | 'choice'
+  | 'multiselect'
+  | 'globalChoice'
+  | 'autonumber'
+  | 'file'
+  | 'image'
   | 'lookup';
 
 export type RequiredLevel = 'None' | 'ApplicationRequired' | 'Recommended';
@@ -46,8 +53,17 @@ export interface FieldDraft {
   // Boolean
   defaultBoolean?: boolean;
 
-  // Choice
+  // Choice (local) and multi-select choice
   options?: OptionDraft[];
+
+  // Global choice — references a project-level global option set draft by id.
+  globalChoiceId?: string;
+
+  // Autonumber — the format string, e.g. "INV-{SEQNUM:5}".
+  autoNumberFormat?: string;
+
+  // File / Image — the maximum size in kilobytes.
+  maxSizeInKB?: number;
 
   // Lookup (1:N) — the parent table this column references.
   lookupTarget?: string;

@@ -1,5 +1,6 @@
 import type { EntityDraft } from '../types/entity';
 import type { FieldDraft, FieldType, RequiredLevel } from '../types/field';
+import type { GlobalChoiceDraft } from '../types/globalChoice';
 import type {
   ColumnSchemaDocument,
   ColumnSchemaEntry,
@@ -33,13 +34,20 @@ const TYPE_ATTRIBUTE_MAP: Record<FieldType, readonly string[]> = {
   email: [...BASE_ATTRIBUTES, 'maxLength'],
   url: [...BASE_ATTRIBUTES, 'maxLength'],
   phone: [...BASE_ATTRIBUTES, 'maxLength'],
+  autonumber: [...BASE_ATTRIBUTES, 'maxLength', 'autoNumberFormat'],
   wholeNumber: [...BASE_ATTRIBUTES, 'minValue', 'maxValue'],
+  bigint: [...BASE_ATTRIBUTES],
   decimal: [...BASE_ATTRIBUTES, 'minValue', 'maxValue', 'precision'],
+  double: [...BASE_ATTRIBUTES, 'minValue', 'maxValue', 'precision'],
   currency: [...BASE_ATTRIBUTES, 'minValue', 'maxValue', 'precision'],
   dateOnly: [...BASE_ATTRIBUTES],
   dateTime: [...BASE_ATTRIBUTES],
   boolean: [...BASE_ATTRIBUTES, 'defaultBoolean'],
   choice: [...BASE_ATTRIBUTES, 'options'],
+  multiselect: [...BASE_ATTRIBUTES, 'options'],
+  globalChoice: [...BASE_ATTRIBUTES, 'globalChoiceName'],
+  file: [...BASE_ATTRIBUTES, 'maxSizeInKB'],
+  image: [...BASE_ATTRIBUTES, 'maxSizeInKB'],
   lookup: [...BASE_ATTRIBUTES],
 };
 
@@ -51,7 +59,10 @@ export function buildSupportedTypeReference(): ColumnTypeReference[] {
   });
 }
 
-function fieldToSchemaEntry(field: FieldDraft): ColumnSchemaEntry | null {
+function fieldToSchemaEntry(
+  field: FieldDraft,
+  globalChoiceNameById?: Map<string, string>,
+): ColumnSchemaEntry | null {
   if (field.type === 'lookup') return null;
 
   const entry: ColumnSchemaEntry = {
@@ -80,13 +91,29 @@ function fieldToSchemaEntry(field: FieldDraft): ColumnSchemaEntry | null {
   if (config.supportsOptions && field.options?.length) {
     entry.options = field.options.map((o) => ({ label: o.label, value: o.value }));
   }
+  if (config.supportsMaxSize && field.maxSizeInKB !== undefined) {
+    entry.maxSizeInKB = field.maxSizeInKB;
+  }
+  if (config.supportsAutoNumber && field.autoNumberFormat) {
+    entry.autoNumberFormat = field.autoNumberFormat;
+  }
+  if (config.supportsGlobalChoice && field.globalChoiceId) {
+    const name = globalChoiceNameById?.get(field.globalChoiceId);
+    if (name) entry.globalChoiceName = name;
+  }
 
   return entry;
 }
 
-export function exportColumnSchema(table: EntityDraft): ColumnSchemaDocument {
+export function exportColumnSchema(
+  table: EntityDraft,
+  globalChoices: GlobalChoiceDraft[] = [],
+): ColumnSchemaDocument {
+  const globalChoiceNameById = new Map(
+    globalChoices.map((c) => [c.id, c.schemaName || toPascalToken(c.displayName)] as const),
+  );
   const columns = table.fields
-    .map(fieldToSchemaEntry)
+    .map((f) => fieldToSchemaEntry(f, globalChoiceNameById))
     .filter((entry): entry is ColumnSchemaEntry => entry !== null);
 
   return {
@@ -278,6 +305,27 @@ function validateColumnEntry(
     errors.push(`${label}: defaultBoolean must be a boolean.`);
   }
 
+  if (raw.maxSizeInKB !== undefined && typeof raw.maxSizeInKB !== 'number') {
+    errors.push(`${label}: maxSizeInKB must be a number.`);
+  }
+
+  if (raw.autoNumberFormat !== undefined && typeof raw.autoNumberFormat !== 'string') {
+    errors.push(`${label}: autoNumberFormat must be a string.`);
+  }
+
+  if (raw.globalChoiceName !== undefined && typeof raw.globalChoiceName !== 'string') {
+    errors.push(`${label}: globalChoiceName must be a string.`);
+  }
+
+  if (fieldType === 'globalChoice') {
+    const name = raw.globalChoiceName;
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      errors.push(
+        `${label}: global choice columns require a globalChoiceName that matches a defined global choice.`,
+      );
+    }
+  }
+
   if (raw.options !== undefined) {
     if (!Array.isArray(raw.options)) {
       errors.push(`${label}: options must be an array.`);
@@ -328,6 +376,13 @@ function validateColumnEntry(
   if (typeof raw.maxValue === 'number') entry.maxValue = raw.maxValue;
   if (typeof raw.precision === 'number') entry.precision = raw.precision;
   if (typeof raw.defaultBoolean === 'boolean') entry.defaultBoolean = raw.defaultBoolean;
+  if (typeof raw.maxSizeInKB === 'number') entry.maxSizeInKB = raw.maxSizeInKB;
+  if (typeof raw.autoNumberFormat === 'string' && raw.autoNumberFormat.trim()) {
+    entry.autoNumberFormat = raw.autoNumberFormat.trim();
+  }
+  if (typeof raw.globalChoiceName === 'string' && raw.globalChoiceName.trim()) {
+    entry.globalChoiceName = sanitizeSchemaToken(raw.globalChoiceName);
+  }
   if (Array.isArray(raw.options)) {
     entry.options = raw.options.map((opt) => ({
       label: (opt as { label: string }).label.trim(),
@@ -469,6 +524,14 @@ export function schemaEntryToFieldDraft(entry: ColumnSchemaEntry): FieldDraft {
         { id: newId(), value: 2, label: 'Option 2' },
       ];
   }
+  if (config.supportsMaxSize) {
+    field.maxSizeInKB = entry.maxSizeInKB ?? config.defaultMaxSizeInKB;
+  }
+  if (config.supportsAutoNumber) {
+    field.autoNumberFormat = entry.autoNumberFormat ?? config.defaultAutoNumberFormat;
+  }
+  // Note: globalChoiceId is resolved from entry.globalChoiceName by the store,
+  // which has access to the project's global choices.
 
   return field;
 }

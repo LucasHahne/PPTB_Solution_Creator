@@ -27,7 +27,7 @@ export function useDeployment() {
       if (result.status === 'success') {
         appendLog(
           'success',
-          `Done. Created ${result.createdTables} table(s), ${result.createdColumns} column(s), ${result.createdRelationships} lookup(s).`,
+          `Done. Created ${result.createdTables} table(s), ${result.createdColumns} column(s), ${result.createdRelationships} lookup(s), ${result.createdGlobalChoices} global choice(s).`,
         );
         await clearDraft();
         await notify('success', 'Deployment complete', 'Your solution schema is ready.');

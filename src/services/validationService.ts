@@ -84,7 +84,38 @@ function validateSolution(project: SolutionProject, issues: ValidationIssue[]) {
   }
 }
 
-function validateTable(entity: EntityDraft, issues: ValidationIssue[]) {
+function validateGlobalChoices(project: SolutionProject, issues: ValidationIssue[]) {
+  const seen = new Set<string>();
+  for (const choice of project.globalChoices ?? []) {
+    const label = choice.displayName || '(unnamed global choice)';
+    if (!choice.displayName.trim()) {
+      issues.push({ step: 'fields', severity: 'error', message: 'A global choice is missing a display name.' });
+    }
+    const token = sanitizeSchemaToken(choice.schemaName).toLowerCase();
+    if (!token) {
+      issues.push({ step: 'fields', severity: 'error', message: `Global choice "${label}" has an invalid schema name.` });
+    } else if (seen.has(token)) {
+      issues.push({ step: 'fields', severity: 'error', message: `Duplicate global choice schema name "${token}".` });
+    }
+    seen.add(token);
+
+    if ((choice.options ?? []).length === 0) {
+      issues.push({ step: 'fields', severity: 'error', message: `Global choice "${label}" needs at least one option.` });
+    }
+    const values = new Set<number>();
+    for (const opt of choice.options ?? []) {
+      if (!opt.label.trim()) {
+        issues.push({ step: 'fields', severity: 'error', message: `An option in global choice "${label}" has no label.` });
+      }
+      if (values.has(opt.value)) {
+        issues.push({ step: 'fields', severity: 'error', message: `Duplicate option value ${opt.value} in global choice "${label}".` });
+      }
+      values.add(opt.value);
+    }
+  }
+}
+
+function validateTable(entity: EntityDraft, issues: ValidationIssue[], globalChoiceIds: Set<string>) {
   const label = entity.displayName || '(unnamed table)';
 
   if (!entity.displayName.trim()) {
@@ -139,6 +170,12 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[]) {
       }
     }
 
+    if (config.supportsGlobalChoice) {
+      if (!field.globalChoiceId || !globalChoiceIds.has(field.globalChoiceId)) {
+        issues.push({ step: 'fields', severity: 'error', message: `Global choice column "${fieldLabel}" must reference an existing global choice.` });
+      }
+    }
+
     for (const constraint of validateFieldConstraints(field)) {
       if (!constraint.valid && constraint.message) {
         issues.push({ step: 'fields', severity: 'error', message: constraint.message });
@@ -157,6 +194,9 @@ export function validateProject(project: SolutionProject): ValidationIssue[] {
     issues.push({ step: 'tables', severity: 'error', message: 'Add at least one table.' });
   }
 
+  validateGlobalChoices(project, issues);
+  const globalChoiceIds = new Set((project.globalChoices ?? []).map((c) => c.id));
+
   const tableTokens = new Set<string>();
   for (const entity of project.tables) {
     const token = sanitizeSchemaToken(entity.schemaName).toLowerCase();
@@ -164,7 +204,7 @@ export function validateProject(project: SolutionProject): ValidationIssue[] {
       issues.push({ step: 'tables', severity: 'error', message: `Duplicate table schema name "${token}".` });
     }
     tableTokens.add(token);
-    validateTable(entity, issues);
+    validateTable(entity, issues, globalChoiceIds);
   }
 
   // Relationships

@@ -5,6 +5,7 @@ import { StepContainer } from "../layout/StepContainer";
 import { FieldGrid } from "./FieldGrid";
 import { FieldConfigPanel } from "./FieldConfigPanel";
 import { ColumnSchemaDialog } from "./ColumnSchemaDialog";
+import { GlobalChoiceManagerDialog } from "./GlobalChoiceManagerDialog";
 import { UnsupportedColumnTypesNote } from "./UnsupportedColumnTypesNote";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
@@ -39,6 +40,7 @@ export function FieldsStep({
 
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const [schemaOpen, setSchemaOpen] = useState(false);
+  const [globalChoicesOpen, setGlobalChoicesOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const dismissCopyMessage = useCallback(() => setCopyMessage(null), []);
@@ -56,7 +58,10 @@ export function FieldsStep({
 
   function handleExportSchema() {
     if (!activeTable) return;
-    downloadJson(exportFilename(activeTable), exportColumnSchema(activeTable));
+    downloadJson(
+      exportFilename(activeTable),
+      exportColumnSchema(activeTable, project.globalChoices),
+    );
   }
 
   async function handleCopySampleSchema() {
@@ -84,6 +89,13 @@ export function FieldsStep({
       description="Define the columns for each table. Pick the primary name column with the radio button."
       titleActions={
         <>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setGlobalChoicesOpen(true)}
+          >
+            Manage global choices
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -202,6 +214,11 @@ export function FieldsStep({
           onApply={(entries) => mergeFieldsFromSchema(activeTable.id, entries)}
         />
       )}
+
+      <GlobalChoiceManagerDialog
+        open={globalChoicesOpen}
+        onClose={() => setGlobalChoicesOpen(false)}
+      />
     </StepContainer>
   );
 }

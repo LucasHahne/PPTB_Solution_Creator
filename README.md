@@ -14,11 +14,15 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 - **Column schema JSON** — export the active table's columns as JSON, download or copy a sample template (with a full type reference), and import via file upload or paste with validation and merge-by-schema-name.
 
-- **All common column types** — single/multi-line text, email, URL, phone, whole number, decimal, currency, date, date & time, yes/no, and local choice.
+- **Every creatable column type** — single/multi-line text, email, URL, phone, autonumber, whole number, big whole number, decimal, floating point, currency, date, date & time, yes/no, local choice, multi-select choice, global choice, file, and image.
 
-- **Column bounds validation** — maximum length, numeric range, and precision are enforced against Dataverse limits before deploy.
+- **Column bounds validation** — maximum length, numeric range, precision, and file/image size are enforced against Dataverse limits before deploy.
 
-- **Choice option editor** — configure local choice columns with Choice / Choice value pairs and bulk paste (`Active:1, Inactive:2`).
+- **Choice option editor** — configure local and multi-select choice columns with Choice / Choice value pairs and bulk paste (`Active:1, Inactive:2`).
+
+- **Global choices** — define shared option sets once in the Global choices manager, then bind any number of "Choice (global)" columns to them; created before columns and reused on retry.
+
+- **Autonumber columns** — configure the format (e.g. `INV-{SEQNUM:5}`) and maximum length.
 
 - **1:N lookups** — relate tables (project tables or standard tables like Account/Contact) with cascade configuration.
 
@@ -49,6 +53,18 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 - The connected user needs the **System Customizer** (or System Administrator) role to create publishers, solutions, tables, columns, and relationships.
 
 ## Update history
+
+### 1.1.0
+
+- Added many new column types to the Fields grid:
+  - **Autonumber** — text column with a configurable `AutoNumberFormat` (e.g. `INV-{SEQNUM:5}`) and maximum length.
+  - **Big whole number** (`BigInt`) and **floating point** (`Double`) numeric types.
+  - **Multi-select choice** — reuses the local choice option editor.
+  - **File** and **Image** — with a configurable maximum size (KB) validated against documented limits.
+  - **Choice (global)** — bind columns to project-level global choices.
+- Added a **Global choices manager** (Fields step) to create shared global option sets. They are created before columns during deploy, reused if they already exist, and reported in the review summary.
+- Extended the **column schema JSON** import/export to cover the new types (file/image size, autonumber format, and global choice by name).
+- Shrunk the "Not yet supported" note to the remaining deferred types (Customer/polymorphic lookup, calculated, rollup, and form layouts & views).
 
 ### 1.0.4
 

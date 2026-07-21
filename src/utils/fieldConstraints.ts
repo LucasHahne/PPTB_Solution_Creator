@@ -9,6 +9,9 @@ export interface FieldLimits {
   minPrecision?: number;
   maxPrecision?: number;
   defaultMaxLength?: number;
+  minMaxSizeInKB?: number;
+  maxMaxSizeInKB?: number;
+  defaultMaxSizeInKB?: number;
 }
 
 export interface ConstraintIssue {
@@ -27,6 +30,9 @@ export function getFieldLimits(type: FieldType): FieldLimits {
     minPrecision: config.minPrecision,
     maxPrecision: config.maxPrecision,
     defaultMaxLength: config.defaultMaxLength,
+    minMaxSizeInKB: config.minMaxSizeInKB,
+    maxMaxSizeInKB: config.maxMaxSizeInKB,
+    defaultMaxSizeInKB: config.defaultMaxSizeInKB,
   };
 }
 
@@ -119,6 +125,34 @@ export function validateFieldConstraints(field: FieldDraft): ConstraintIssue[] {
     }
   }
 
+  if (config.supportsMaxSize) {
+    const { minMaxSizeInKB = 1, maxMaxSizeInKB } = config;
+    const size = field.maxSizeInKB;
+    if (size !== undefined) {
+      if (size < minMaxSizeInKB) {
+        issues.push({
+          valid: false,
+          message: `Column "${label}" maximum size must be at least ${minMaxSizeInKB.toLocaleString()} KB.`,
+        });
+      }
+      if (maxMaxSizeInKB !== undefined && size > maxMaxSizeInKB) {
+        issues.push({
+          valid: false,
+          message: `Column "${label}" maximum size cannot exceed ${maxMaxSizeInKB.toLocaleString()} KB.`,
+        });
+      }
+    }
+  }
+
+  if (config.supportsAutoNumber) {
+    if (!field.autoNumberFormat || !field.autoNumberFormat.trim()) {
+      issues.push({
+        valid: false,
+        message: `Autonumber column "${label}" needs a format, e.g. INV-{SEQNUM:5}.`,
+      });
+    }
+  }
+
   return issues;
 }
 
@@ -141,4 +175,11 @@ export function precisionHint(type: FieldType): string | undefined {
   const { minPrecision, maxPrecision } = getFieldLimits(type);
   if (minPrecision === undefined || maxPrecision === undefined) return undefined;
   return `Allowed: ${minPrecision}–${maxPrecision} decimal places`;
+}
+
+/** Format a hint string for maximum size (file/image) inputs. */
+export function maxSizeHint(type: FieldType): string | undefined {
+  const { minMaxSizeInKB, maxMaxSizeInKB } = getFieldLimits(type);
+  if (minMaxSizeInKB === undefined || maxMaxSizeInKB === undefined) return undefined;
+  return `Allowed: ${minMaxSizeInKB.toLocaleString()}–${maxMaxSizeInKB.toLocaleString()} KB`;
 }

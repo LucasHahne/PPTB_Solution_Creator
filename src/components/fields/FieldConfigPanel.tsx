@@ -7,11 +7,13 @@ import {
   clampNumeric,
   getFieldLimits,
   maxLengthHint,
+  maxSizeHint,
   parseOptionalNumber,
   precisionHint,
   rangeHint,
 } from '../../utils/fieldConstraints';
 import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 import { Checkbox } from '../ui/Checkbox';
 import { Button } from '../ui/Button';
 import { OptionSetEditor } from './OptionSetEditor';
@@ -26,6 +28,7 @@ export function FieldConfigPanel({
   onClose: () => void;
 }) {
   const updateField = useProjectStore((s) => s.updateField);
+  const globalChoices = useProjectStore((s) => s.project.globalChoices);
   const config = FIELD_TYPE_CONFIGS[field.type];
   const limits = getFieldLimits(field.type);
 
@@ -33,9 +36,27 @@ export function FieldConfigPanel({
   const [minValueError, setMinValueError] = useState<string>();
   const [maxValueError, setMaxValueError] = useState<string>();
   const [precisionError, setPrecisionError] = useState<string>();
+  const [maxSizeError, setMaxSizeError] = useState<string>();
 
   function patch(p: Partial<FieldDraft>) {
     updateField(tableId, field.id, p);
+  }
+
+  function handleMaxSizeChange(raw: string) {
+    const parsed = parseOptionalNumber(raw);
+    if (parsed === undefined) {
+      setMaxSizeError(undefined);
+      patch({ maxSizeInKB: undefined });
+      return;
+    }
+    const min = limits.minMaxSizeInKB ?? 1;
+    const max = limits.maxMaxSizeInKB ?? Number.MAX_SAFE_INTEGER;
+    if (parsed < min || parsed > max) {
+      setMaxSizeError(`Must be between ${min.toLocaleString()} and ${max.toLocaleString()} KB`);
+    } else {
+      setMaxSizeError(undefined);
+    }
+    patch({ maxSizeInKB: clampNumeric(Math.round(parsed), min, max) });
   }
 
   function handleMaxLengthChange(raw: string) {
@@ -126,6 +147,54 @@ export function FieldConfigPanel({
               value={field.maxLength ?? ''}
               onChange={(e) => handleMaxLengthChange(e.target.value)}
             />
+          </Field>
+        )}
+
+        {config.supportsAutoNumber && (
+          <Field
+            label="Autonumber format"
+            hint="Placeholders: {SEQNUM:n}, {RANDSTRING:n}, {DATETIMEUTC:format}"
+          >
+            <Input
+              value={field.autoNumberFormat ?? ''}
+              placeholder="INV-{SEQNUM:5}"
+              onChange={(e) => patch({ autoNumberFormat: e.target.value })}
+            />
+          </Field>
+        )}
+
+        {config.supportsMaxSize && (
+          <Field label="Maximum size (KB)" hint={maxSizeHint(field.type)} error={maxSizeError}>
+            <Input
+              type="number"
+              min={limits.minMaxSizeInKB}
+              max={limits.maxMaxSizeInKB}
+              value={field.maxSizeInKB ?? ''}
+              onChange={(e) => handleMaxSizeChange(e.target.value)}
+            />
+          </Field>
+        )}
+
+        {config.supportsGlobalChoice && (
+          <Field
+            label="Global choice"
+            hint={
+              globalChoices.length === 0
+                ? 'No global choices yet — create one from "Manage global choices".'
+                : undefined
+            }
+          >
+            <Select
+              value={field.globalChoiceId ?? ''}
+              onChange={(e) => patch({ globalChoiceId: e.target.value || undefined })}
+            >
+              <option value="">Select a global choice…</option>
+              {globalChoices.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.displayName || '(unnamed global choice)'}
+                </option>
+              ))}
+            </Select>
           </Field>
         )}
 

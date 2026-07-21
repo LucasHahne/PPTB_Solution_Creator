@@ -29,6 +29,12 @@ export interface ColumnSchemaEntry {
   precision?: number;
   defaultBoolean?: boolean;
   options?: ColumnSchemaOption[];
+  /** File/image maximum size in KB. */
+  maxSizeInKB?: number;
+  /** Autonumber format pattern. */
+  autoNumberFormat?: string;
+  /** Global choice reference, by its (unprefixed) schema name. */
+  globalChoiceName?: string;
 }
 
 export interface ColumnTypeReference {

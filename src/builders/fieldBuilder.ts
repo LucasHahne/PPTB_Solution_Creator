@@ -16,6 +16,15 @@ function requiredLevel(field: FieldDraft) {
   return { Value: field.requiredLevel };
 }
 
+/** Extra context needed to build certain attribute payloads. */
+export interface AttributeBuildContext {
+  /**
+   * OData bind target for a global choice column, e.g.
+   * "/GlobalOptionSetDefinitions(<metadataId>)". Required for globalChoice fields.
+   */
+  globalOptionSetBind?: string;
+}
+
 /**
  * Build the Dataverse attribute metadata payload for a field.
  * Lookups are intentionally NOT built here — they are created as 1:N
@@ -24,6 +33,7 @@ function requiredLevel(field: FieldDraft) {
 export function buildAttributeDefinition(
   prefix: string,
   field: FieldDraft,
+  context: AttributeBuildContext = {},
 ): Record<string, unknown> {
   const config = FIELD_TYPE_CONFIGS[field.type];
   const schemaName = buildSchemaName(prefix, field.schemaName);
@@ -48,6 +58,12 @@ export function buildAttributeDefinition(
       base.FormatName = { Value: config.formatName };
       break;
 
+    case 'autonumber':
+      base.MaxLength = field.maxLength ?? config.defaultMaxLength ?? 100;
+      base.FormatName = { Value: config.formatName ?? 'Text' };
+      base.AutoNumberFormat = field.autoNumberFormat ?? config.defaultAutoNumberFormat ?? '';
+      break;
+
     case 'multiline':
       base.MaxLength = field.maxLength ?? config.defaultMaxLength ?? 2000;
       break;
@@ -58,9 +74,19 @@ export function buildAttributeDefinition(
       base.Format = 'None';
       break;
 
+    case 'bigint':
+      // BigIntAttributeMetadata bounds are fixed by the platform; no MinValue/MaxValue.
+      break;
+
     case 'decimal':
       base.MinValue = field.minValue ?? 0;
       base.MaxValue = field.maxValue ?? 1000000000;
+      base.Precision = field.precision ?? 2;
+      break;
+
+    case 'double':
+      base.MinValue = field.minValue ?? -100000000000;
+      base.MaxValue = field.maxValue ?? 100000000000;
       base.Precision = field.precision ?? 2;
       break;
 
@@ -86,6 +112,7 @@ export function buildAttributeDefinition(
       break;
 
     case 'choice':
+    case 'multiselect':
       base.OptionSet = {
         '@odata.type': 'Microsoft.Dynamics.CRM.OptionSetMetadata',
         IsGlobal: false,
@@ -95,6 +122,25 @@ export function buildAttributeDefinition(
           Label: makeLabel(opt.label),
         })),
       };
+      break;
+
+    case 'globalChoice':
+      if (!context.globalOptionSetBind) {
+        throw new Error(
+          `Global choice column "${field.displayName}" is missing its global option set reference.`,
+        );
+      }
+      base['GlobalOptionSet@odata.bind'] = context.globalOptionSetBind;
+      break;
+
+    case 'file':
+      base.AttributeTypeName = { Value: 'FileType' };
+      base.MaxSizeInKB = field.maxSizeInKB ?? config.defaultMaxSizeInKB ?? 32768;
+      break;
+
+    case 'image':
+      base.AttributeTypeName = { Value: 'ImageType' };
+      base.MaxSizeInKB = field.maxSizeInKB ?? config.defaultMaxSizeInKB ?? 10240;
       break;
   }
 

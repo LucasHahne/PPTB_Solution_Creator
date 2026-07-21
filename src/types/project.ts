@@ -1,4 +1,5 @@
 import type { EntityDraft } from './entity';
+import type { GlobalChoiceDraft } from './globalChoice';
 import type { LookupRelationshipDraft } from './relationship';
 import type { SolutionTarget } from './solution';
 
@@ -17,6 +18,8 @@ export interface SolutionProject {
   solution: SolutionTarget;
   tables: EntityDraft[];
   relationships: LookupRelationshipDraft[];
+  /** Project-level global option sets referenced by "Choice (global)" columns. */
+  globalChoices: GlobalChoiceDraft[];
 }
 
 export type DeploymentStatus =

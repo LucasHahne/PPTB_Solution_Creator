@@ -155,6 +155,45 @@ export async function createColumn(
   }
 }
 
+/** Look up an existing global option set's MetadataId by Name, or null if absent. */
+export async function findGlobalOptionSetMetadataId(
+  name: string,
+): Promise<string | null> {
+  const target = name.toLowerCase();
+  try {
+    const response = await window.dataverseAPI.queryData(
+      'GlobalOptionSetDefinitions?$select=Name,MetadataId',
+    );
+    const match = response.value.find(
+      (row) => typeof row.Name === 'string' && row.Name.toLowerCase() === target,
+    );
+    const id = match?.MetadataId;
+    return typeof id === 'string' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function createGlobalOptionSet(
+  definition: Record<string, unknown>,
+  solutionUniqueName: string,
+  name?: string,
+): Promise<string> {
+  try {
+    const result = await window.dataverseAPI.createGlobalOptionSet(
+      definition,
+      options(solutionUniqueName),
+    );
+    return result.id;
+  } catch (error) {
+    if (name && isMissingEntityIdHeaderError(error)) {
+      const recoveredId = await findGlobalOptionSetMetadataId(name);
+      if (recoveredId) return recoveredId;
+    }
+    throw error;
+  }
+}
+
 export async function createOneToMany(
   definition: Record<string, unknown>,
   solutionUniqueName: string,

@@ -11,24 +11,34 @@ export type AttributeMetadataTypeName =
   | 'String'
   | 'Memo'
   | 'Integer'
+  | 'BigInt'
   | 'Decimal'
+  | 'Double'
   | 'Money'
   | 'Boolean'
   | 'DateTime'
   | 'Lookup'
-  | 'Picklist';
+  | 'Picklist'
+  | 'MultiSelectPicklist'
+  | 'File'
+  | 'Image';
 
 /** Literal OData type strings for each attribute metadata type. */
 export const ATTRIBUTE_ODATA_TYPE: Record<AttributeMetadataTypeName, string> = {
   String: 'Microsoft.Dynamics.CRM.StringAttributeMetadata',
   Memo: 'Microsoft.Dynamics.CRM.MemoAttributeMetadata',
   Integer: 'Microsoft.Dynamics.CRM.IntegerAttributeMetadata',
+  BigInt: 'Microsoft.Dynamics.CRM.BigIntAttributeMetadata',
   Decimal: 'Microsoft.Dynamics.CRM.DecimalAttributeMetadata',
+  Double: 'Microsoft.Dynamics.CRM.DoubleAttributeMetadata',
   Money: 'Microsoft.Dynamics.CRM.MoneyAttributeMetadata',
   Boolean: 'Microsoft.Dynamics.CRM.BooleanAttributeMetadata',
   DateTime: 'Microsoft.Dynamics.CRM.DateTimeAttributeMetadata',
   Lookup: 'Microsoft.Dynamics.CRM.LookupAttributeMetadata',
   Picklist: 'Microsoft.Dynamics.CRM.PicklistAttributeMetadata',
+  MultiSelectPicklist: 'Microsoft.Dynamics.CRM.MultiSelectPicklistAttributeMetadata',
+  File: 'Microsoft.Dynamics.CRM.FileAttributeMetadata',
+  Image: 'Microsoft.Dynamics.CRM.ImageAttributeMetadata',
 };
 
 export interface FieldTypeConfig {
@@ -42,12 +52,28 @@ export interface FieldTypeConfig {
   supportsRange?: boolean;
   /** Whether the type supports decimal precision. */
   supportsPrecision?: boolean;
-  /** Whether the type has a local option set editor. */
+  /** Whether the type has a local option set editor (local choice / multi-select). */
   supportsOptions?: boolean;
+  /** Whether the type references a project-level global option set. */
+  supportsGlobalChoice?: boolean;
+  /** Whether the type is stored as multiple selected values. */
+  isMultiSelect?: boolean;
+  /** Whether the type supports a configurable maximum size (file/image). */
+  supportsMaxSize?: boolean;
+  /** Whether the type is an autonumber string with a format pattern. */
+  supportsAutoNumber?: boolean;
   /** Whether the type references another table. */
   supportsLookup?: boolean;
   /** Default max length applied when adding the field. */
   defaultMaxLength?: number;
+  /** Default maximum size in KB applied when adding a file/image field. */
+  defaultMaxSizeInKB?: number;
+  /** Minimum allowed maximum size in KB. */
+  minMaxSizeInKB?: number;
+  /** Maximum allowed maximum size in KB. */
+  maxMaxSizeInKB?: number;
+  /** Default autonumber format applied when adding the field. */
+  defaultAutoNumberFormat?: string;
   /** StringFormatName value for String-backed types. */
   formatName?: string;
   /** DateTimeFormat value for DateTime-backed types. */
@@ -127,6 +153,12 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     minValueLimit: -2_147_483_648,
     maxValueLimit: 2_147_483_647,
   },
+  bigint: {
+    type: 'bigint',
+    label: 'Whole number (big)',
+    attributeType: 'BigInt',
+    hint: 'Large whole number for values beyond the standard whole number range.',
+  },
   decimal: {
     type: 'decimal',
     label: 'Decimal number',
@@ -137,6 +169,18 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     maxValueLimit: 1_000_000_000,
     minPrecision: 0,
     maxPrecision: 10,
+  },
+  double: {
+    type: 'double',
+    label: 'Floating point number',
+    attributeType: 'Double',
+    supportsRange: true,
+    supportsPrecision: true,
+    minValueLimit: -100_000_000_000,
+    maxValueLimit: 100_000_000_000,
+    minPrecision: 0,
+    maxPrecision: 5,
+    hint: 'Approximate numeric value; use decimal when exact precision matters.',
   },
   currency: {
     type: 'currency',
@@ -172,6 +216,54 @@ export const FIELD_TYPE_CONFIGS: Record<FieldType, FieldTypeConfig> = {
     attributeType: 'Picklist',
     supportsOptions: true,
   },
+  multiselect: {
+    type: 'multiselect',
+    label: 'Choice (multi-select)',
+    attributeType: 'MultiSelectPicklist',
+    supportsOptions: true,
+    isMultiSelect: true,
+    hint: 'Lets users select more than one value from a local option set.',
+  },
+  globalChoice: {
+    type: 'globalChoice',
+    label: 'Choice (global)',
+    attributeType: 'Picklist',
+    supportsGlobalChoice: true,
+    hint: 'References a shared global choice defined in the Global choices manager.',
+  },
+  autonumber: {
+    type: 'autonumber',
+    label: 'Autonumber',
+    attributeType: 'String',
+    supportsMaxLength: true,
+    supportsAutoNumber: true,
+    defaultMaxLength: 100,
+    minMaxLength: 1,
+    maxMaxLength: 4000,
+    formatName: 'Text',
+    defaultAutoNumberFormat: '{SEQNUM:5}',
+    hint: 'A text column that auto-populates using a format like INV-{SEQNUM:5}.',
+  },
+  file: {
+    type: 'file',
+    label: 'File',
+    attributeType: 'File',
+    supportsMaxSize: true,
+    defaultMaxSizeInKB: 32_768,
+    minMaxSizeInKB: 1,
+    maxMaxSizeInKB: 10_485_760,
+    hint: 'Stores an uploaded file. Maximum size is capped by the environment.',
+  },
+  image: {
+    type: 'image',
+    label: 'Image',
+    attributeType: 'Image',
+    supportsMaxSize: true,
+    defaultMaxSizeInKB: 10_240,
+    minMaxSizeInKB: 1,
+    maxMaxSizeInKB: 30_720,
+    hint: 'Stores an image. Maximum size is capped by the environment.',
+  },
   lookup: {
     type: 'lookup',
     label: 'Lookup',
@@ -192,13 +284,20 @@ export const FIELD_TYPE_ORDER: FieldType[] = [
   'email',
   'url',
   'phone',
+  'autonumber',
   'wholeNumber',
+  'bigint',
   'decimal',
+  'double',
   'currency',
   'dateOnly',
   'dateTime',
   'boolean',
   'choice',
+  'multiselect',
+  'globalChoice',
+  'file',
+  'image',
 ];
 
 /** Loose alias map for parsing bulk-pasted type names. */
@@ -217,8 +316,14 @@ export const FIELD_TYPE_ALIASES: Record<string, FieldType> = {
   int: 'wholeNumber',
   integer: 'wholeNumber',
   'whole number': 'wholeNumber',
+  bigint: 'bigint',
+  'big integer': 'bigint',
+  'whole number (big)': 'bigint',
   decimal: 'decimal',
-  float: 'decimal',
+  double: 'double',
+  float: 'double',
+  'floating point': 'double',
+  'floating point number': 'double',
   currency: 'currency',
   money: 'currency',
   date: 'dateOnly',
@@ -232,4 +337,14 @@ export const FIELD_TYPE_ALIASES: Record<string, FieldType> = {
   choice: 'choice',
   optionset: 'choice',
   picklist: 'choice',
+  multiselect: 'multiselect',
+  'multi-select': 'multiselect',
+  'multi-select choice': 'multiselect',
+  multiselectpicklist: 'multiselect',
+  'global choice': 'globalChoice',
+  globalchoice: 'globalChoice',
+  autonumber: 'autonumber',
+  'auto number': 'autonumber',
+  file: 'file',
+  image: 'image',
 };

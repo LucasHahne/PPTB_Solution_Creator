@@ -76,6 +76,25 @@ export function ReviewSummary() {
         </ul>
       </section>
 
+      {project.globalChoices.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Global choices ({project.globalChoices.length})
+          </h3>
+          <ul className="mt-2 space-y-1.5">
+            {project.globalChoices.map((choice) => (
+              <li key={choice.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <span className="font-medium">{choice.displayName || '(unnamed)'}</span>
+                <span className="text-xs text-slate-400">
+                  {prefix}_{choice.schemaName.toLowerCase()}
+                </span>
+                <Badge tone="neutral">{choice.options.length} options</Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {project.relationships.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

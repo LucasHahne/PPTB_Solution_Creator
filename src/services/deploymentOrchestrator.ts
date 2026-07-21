@@ -2,11 +2,14 @@ import type { DeploymentStatus, LogLevel, SolutionProject } from '../types/proje
 import { buildEntityDefinition, getPrimaryNameField } from '../builders/entityBuilder';
 import { buildAttributeDefinition } from '../builders/fieldBuilder';
 import { buildOneToManyRelationship } from '../builders/relationshipBuilder';
+import { buildGlobalOptionSet, globalChoiceName } from '../builders/globalChoiceBuilder';
 import {
   createColumn,
+  createGlobalOptionSet,
   createOneToMany,
   createTable,
   findEntityMetadataId,
+  findGlobalOptionSetMetadataId,
   findRelationshipMetadataId,
   listColumnLogicalNames,
   publishAll,
@@ -44,11 +47,12 @@ export interface DeploymentResult {
   createdTables: number;
   createdColumns: number;
   createdRelationships: number;
+  createdGlobalChoices: number;
 }
 
 /**
  * Sequence the full deployment:
- *   publisher -> solution -> tables -> columns -> relationships -> publish.
+ *   publisher -> solution -> global choices -> tables -> columns -> relationships -> publish.
  *
  * On the first failure it stops, logs what succeeded, and returns a partial/error
  * result. There is no automatic rollback (Dataverse does not support it here).
@@ -62,6 +66,7 @@ export async function deployProject(
     createdTables: 0,
     createdColumns: 0,
     createdRelationships: 0,
+    createdGlobalChoices: 0,
   };
 
   const prefix = getProjectPrefix(project);
@@ -79,7 +84,27 @@ export async function deployProject(
     return { ...result, status: 'error' };
   }
 
+  // Maps a global choice draft id to its OData bind target for referencing columns.
+  const globalChoiceBindById = new Map<string, string>();
+
   try {
+    // Global choices (global option sets). Created before columns so that
+    // "Choice (global)" columns can bind to them. Reused if they already exist.
+    for (const choice of project.globalChoices ?? []) {
+      const name = globalChoiceName(prefix, choice);
+      let metadataId = await findGlobalOptionSetMetadataId(name);
+      if (metadataId) {
+        log('info', `Global choice "${choice.displayName}" already exists — reusing it.`);
+      } else {
+        const definition = buildGlobalOptionSet(prefix, choice);
+        assertCloneable(`global choice "${choice.displayName}"`, definition);
+        metadataId = await createGlobalOptionSet(definition, solutionUniqueName, name);
+        result.createdGlobalChoices += 1;
+        log('success', `Created global choice "${choice.displayName}".`);
+      }
+      globalChoiceBindById.set(choice.id, `/GlobalOptionSetDefinitions(${metadataId})`);
+    }
+
     // Tables (primary name column is embedded). Skip tables that already exist so
     // retries after a partial deployment are safe.
     for (const entity of project.tables) {
@@ -111,7 +136,14 @@ export async function deployProject(
           log('info', `Column "${field.displayName}" already exists on "${entity.displayName}" — skipping.`);
           continue;
         }
-        const definition = buildAttributeDefinition(prefix, field);
+        if (field.type === 'globalChoice' && !field.globalChoiceId) {
+          log('warning', `Skipped column "${field.displayName}" — no global choice selected.`);
+          continue;
+        }
+        const globalOptionSetBind = field.globalChoiceId
+          ? globalChoiceBindById.get(field.globalChoiceId)
+          : undefined;
+        const definition = buildAttributeDefinition(prefix, field, { globalOptionSetBind });
         assertCloneable(`column "${field.displayName}"`, definition);
         await createColumn(logicalName, definition, solutionUniqueName, columnLogicalName);
         result.createdColumns += 1;
@@ -159,7 +191,11 @@ export async function deployProject(
     console.error('[Solution Creator] Deployment error:', error);
     log('error', `Deployment stopped: ${toErrorMessage(error)}`);
     const anyProgress =
-      result.createdTables + result.createdColumns + result.createdRelationships > 0;
+      result.createdTables +
+        result.createdColumns +
+        result.createdRelationships +
+        result.createdGlobalChoices >
+      0;
     return { ...result, status: anyProgress ? 'partial' : 'error' };
   }
 
