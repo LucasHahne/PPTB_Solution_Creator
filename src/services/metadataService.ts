@@ -8,10 +8,10 @@ function options(solutionUniqueName: string) {
 }
 
 /**
- * The host's createEntityDefinition reads the new entity's MetadataId from the
- * OData-EntityId response header. On some environments that header is absent even
- * though the entity was created successfully, surfacing as this error. When we see
- * it we can safely recover by looking the entity up by its logical name.
+ * The host's create* metadata APIs read the new MetadataId from the OData-EntityId
+ * response header. On some environments that header is absent even though the
+ * metadata was created successfully, surfacing as this error. When we see it we
+ * recover by looking the record up by name.
  */
 function isMissingEntityIdHeaderError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -73,6 +73,43 @@ export async function listColumnLogicalNames(
   }
 }
 
+/**
+ * Look up an existing 1:N relationship's MetadataId by SchemaName on the parent
+ * (referenced) entity, or null if it doesn't exist.
+ */
+export async function findRelationshipMetadataId(
+  parentLogicalName: string,
+  relationshipSchemaName: string,
+): Promise<string | null> {
+  try {
+    const response = await window.dataverseAPI.getEntityRelatedMetadata(
+      parentLogicalName,
+      `OneToManyRelationships(SchemaName='${relationshipSchemaName}')`,
+      ['SchemaName', 'MetadataId'],
+    );
+    const id = (response as Record<string, unknown>).MetadataId;
+    return typeof id === 'string' ? id : null;
+  } catch {
+    // Keyed path can fail on some hosts; fall back to listing and matching.
+    try {
+      const list = await window.dataverseAPI.getEntityRelatedMetadata(
+        parentLogicalName,
+        'OneToManyRelationships',
+        ['SchemaName', 'MetadataId'],
+      );
+      const match = list.value.find(
+        (rel) =>
+          typeof rel.SchemaName === 'string' &&
+          rel.SchemaName.toLowerCase() === relationshipSchemaName.toLowerCase(),
+      );
+      const id = match?.MetadataId;
+      return typeof id === 'string' ? id : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export async function createTable(
   definition: Record<string, unknown>,
   solutionUniqueName: string,
@@ -121,12 +158,29 @@ export async function createColumn(
 export async function createOneToMany(
   definition: Record<string, unknown>,
   solutionUniqueName: string,
+  parentLogicalName?: string,
+  relationshipSchemaName?: string,
 ): Promise<string> {
-  const result = await window.dataverseAPI.createRelationship(
-    definition,
-    options(solutionUniqueName),
-  );
-  return result.id;
+  try {
+    const result = await window.dataverseAPI.createRelationship(
+      definition,
+      options(solutionUniqueName),
+    );
+    return result.id;
+  } catch (error) {
+    if (
+      parentLogicalName &&
+      relationshipSchemaName &&
+      isMissingEntityIdHeaderError(error)
+    ) {
+      const recoveredId = await findRelationshipMetadataId(
+        parentLogicalName,
+        relationshipSchemaName,
+      );
+      if (recoveredId) return recoveredId;
+    }
+    throw error;
+  }
 }
 
 export async function publishAll(): Promise<void> {

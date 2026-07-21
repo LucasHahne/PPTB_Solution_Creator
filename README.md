@@ -50,6 +50,11 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 ## Update history
 
+### 1.0.4
+
+- Fixed deploy aborting on 1:N lookups when the ToolBox host omits the `OData-EntityId` response header after a successful `createRelationship` (same recovery pattern already used for tables and columns).
+- Lookups that already exist are skipped on retry so a partial deploy can finish and publish.
+
 ### 1.0.3
 
 - Added **column schema JSON** on the Fields step header:
