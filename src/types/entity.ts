@@ -14,4 +14,10 @@ export interface EntityDraft {
   hasActivities: boolean;
   hasNotes: boolean;
   fields: FieldDraft[];
+  /**
+   * When present, this table is an auto-managed bridge (intersect) table for a
+   * many-to-many relationship. Its two side lookups are owned by that
+   * relationship draft (referenced by id), not by the Fields step.
+   */
+  bridge?: { relationshipId: string };
 }

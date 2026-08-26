@@ -3,7 +3,12 @@ import type { SolutionProject, WizardStep } from '../types/project';
 import type { EntityDraft } from '../types/entity';
 import type { FieldDraft, FieldType } from '../types/field';
 import type { GlobalChoiceDraft } from '../types/globalChoice';
-import type { LookupRelationshipDraft } from '../types/relationship';
+import type {
+  BridgeLookupConfig,
+  LookupRelationshipDraft,
+  ManyToManyRelationshipDraft,
+  TableRef,
+} from '../types/relationship';
 import type { NewSolutionDraft, SolutionSummary } from '../types/solution';
 import type { ColumnSchemaEntry } from '../types/columnSchema';
 import {
@@ -13,8 +18,10 @@ import {
   schemaEntryToFieldDraft,
 } from '../utils/columnSchema';
 import { newId } from '../utils/ids';
+import { COMMON_LOOKUP_TARGETS } from '../constants/defaults';
 import { FIELD_TYPE_CONFIGS } from '../constants/fieldTypes';
-import { toPascalToken } from '../services/namingService';
+import { buildBridgeSchemaToken, toPascalToken } from '../services/namingService';
+import { getProjectPrefix } from '../services/validationService';
 
 function emptyProject(): SolutionProject {
   return {
@@ -28,6 +35,7 @@ function emptyProject(): SolutionProject {
     },
     tables: [],
     relationships: [],
+    manyToMany: [],
     globalChoices: [],
   };
 }
@@ -37,6 +45,7 @@ function normalizeProject(project: SolutionProject): SolutionProject {
   return {
     ...project,
     relationships: project.relationships ?? [],
+    manyToMany: project.manyToMany ?? [],
     globalChoices: project.globalChoices ?? [],
   };
 }
@@ -104,6 +113,85 @@ function makeTable(displayName = ''): EntityDraft {
   };
 }
 
+/** A fresh autonumber primary-name field for a bridge table. */
+function bridgePrimaryField(): FieldDraft {
+  return {
+    id: newId(),
+    type: 'autonumber',
+    displayName: 'Name',
+    schemaName: 'Name',
+    requiredLevel: 'ApplicationRequired',
+    isPrimaryName: true,
+    maxLength: 100,
+    autoNumberFormat: 'BRIDGE-{SEQNUM:6}',
+  };
+}
+
+/** Human-readable label for a table reference, used to derive bridge names. */
+function tableRefLabel(tables: EntityDraft[], ref: TableRef): string {
+  if (ref.kind === 'project') {
+    return tables.find((t) => t.id === ref.tableId)?.displayName || 'Table';
+  }
+  const known = COMMON_LOOKUP_TARGETS.find((t) => t.logicalName === ref.logicalName);
+  return known?.label ?? ref.logicalName;
+}
+
+/** Schema token for a side, used to compose the bridge schema name. */
+function tableRefToken(tables: EntityDraft[], ref: TableRef): string {
+  if (ref.kind === 'project') {
+    const table = tables.find((t) => t.id === ref.tableId);
+    return table?.schemaName || toPascalToken(table?.displayName ?? 'Table');
+  }
+  const known = COMMON_LOOKUP_TARGETS.find((t) => t.logicalName === ref.logicalName);
+  return toPascalToken(known?.label ?? ref.logicalName);
+}
+
+/** Build the two default bridge lookup configs for a pair of sides. */
+function defaultBridgeLookups(
+  labelA: string,
+  labelB: string,
+): { side1Lookup: BridgeLookupConfig; side2Lookup: BridgeLookupConfig } {
+  // Disambiguate when both sides resolve to the same label (self-referential M:N).
+  const sameLabel = labelA.trim().toLowerCase() === labelB.trim().toLowerCase();
+  const nameA = sameLabel ? `${labelA} 1` : labelA;
+  const nameB = sameLabel ? `${labelB} 2` : labelB;
+  return {
+    side1Lookup: {
+      displayName: nameA,
+      schemaName: toPascalToken(nameA),
+      required: true,
+      cascadeDelete: 'Cascade',
+    },
+    side2Lookup: {
+      displayName: nameB,
+      schemaName: toPascalToken(nameB),
+      required: true,
+      cascadeDelete: 'Cascade',
+    },
+  };
+}
+
+/** Create a bridge table draft for a many-to-many relationship. */
+function makeBridgeTable(
+  labelA: string,
+  labelB: string,
+  schemaToken: string,
+  relationshipId: string,
+): EntityDraft {
+  const displayName = `BRIDGE ${labelA} ${labelB}`;
+  return {
+    id: newId(),
+    displayName,
+    pluralName: `${displayName}s`,
+    schemaName: schemaToken,
+    ownershipType: 'UserOwned',
+    hasActivities: false,
+    hasNotes: false,
+    fields: [bridgePrimaryField()],
+    bridge: { relationshipId },
+  };
+}
+
 interface ProjectState {
   project: SolutionProject;
   currentStep: WizardStep;
@@ -136,10 +224,15 @@ interface ProjectState {
   setPrimaryName: (tableId: string, fieldId: string) => void;
   mergeFieldsFromSchema: (tableId: string, entries: ColumnSchemaEntry[]) => void;
 
-  // Relationships
+  // Relationships (1:N lookups)
   addRelationship: (rel: LookupRelationshipDraft) => void;
   updateRelationship: (id: string, patch: Partial<LookupRelationshipDraft>) => void;
   removeRelationship: (id: string) => void;
+
+  // Many-to-many relationships (bridge tables)
+  addManyToMany: (side1: TableRef, side2: TableRef) => string;
+  updateManyToMany: (id: string, patch: Partial<ManyToManyRelationshipDraft>) => void;
+  removeManyToMany: (id: string) => void;
 
   // Global choices
   addGlobalChoice: (choice?: GlobalChoiceDraft) => string;
@@ -238,7 +331,20 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   removeTable: (id) =>
     set((state) => {
-      const tables = state.project.tables.filter((t) => t.id !== id);
+      const referencesTable = (ref: TableRef) => ref.kind === 'project' && ref.tableId === id;
+
+      // Many-to-many relationships to drop: those referencing this table as a
+      // side, or whose bridge table is the one being removed.
+      const removedM2M = state.project.manyToMany.filter(
+        (m) => referencesTable(m.side1) || referencesTable(m.side2) || m.bridgeTableId === id,
+      );
+      const removedM2MIds = new Set(removedM2M.map((m) => m.id));
+      // Bridge tables that must disappear along with their relationships.
+      const removedBridgeTableIds = new Set(removedM2M.map((m) => m.bridgeTableId));
+      removedBridgeTableIds.add(id);
+
+      const tables = state.project.tables.filter((t) => !removedBridgeTableIds.has(t.id));
+
       return {
         project: {
           ...state.project,
@@ -246,9 +352,11 @@ export const useProjectStore = create<ProjectState>((set) => ({
           relationships: state.project.relationships.filter(
             (r) => r.childTableId !== id && !(r.parent.kind === 'project' && r.parent.tableId === id),
           ),
+          manyToMany: state.project.manyToMany.filter((m) => !removedM2MIds.has(m.id)),
         },
-        selectedTableId:
-          state.selectedTableId === id ? tables[0]?.id ?? null : state.selectedTableId,
+        selectedTableId: removedBridgeTableIds.has(state.selectedTableId ?? '')
+          ? tables[0]?.id ?? null
+          : state.selectedTableId,
       };
     }),
 
@@ -263,6 +371,8 @@ export const useProjectStore = create<ProjectState>((set) => ({
         schemaName: `${source.schemaName}Copy`,
         pluralName: `${source.displayName} Copies`,
         fields: source.fields.map((f) => ({ ...f, id: newId() })),
+        // A duplicated bridge table is a standalone table, not tied to any M:N.
+        bridge: undefined,
       };
       return {
         project: { ...state.project, tables: [...state.project.tables, copy] },
@@ -439,6 +549,109 @@ export const useProjectStore = create<ProjectState>((set) => ({
         relationships: state.project.relationships.filter((r) => r.id !== id),
       },
     })),
+
+  addManyToMany: (side1, side2) => {
+    const relationshipId = newId();
+    let createdId = relationshipId;
+    set((state) => {
+      const { tables } = state.project;
+      const prefix = getProjectPrefix(state.project) ?? 'new';
+      const labelA = tableRefLabel(tables, side1);
+      const labelB = tableRefLabel(tables, side2);
+      const schemaToken = buildBridgeSchemaToken(
+        prefix,
+        tableRefToken(tables, side1),
+        tableRefToken(tables, side2),
+      );
+      const bridge = makeBridgeTable(labelA, labelB, schemaToken, relationshipId);
+      const { side1Lookup, side2Lookup } = defaultBridgeLookups(labelA, labelB);
+
+      const m2m: ManyToManyRelationshipDraft = {
+        id: relationshipId,
+        side1,
+        side2,
+        bridgeTableId: bridge.id,
+        side1Lookup,
+        side2Lookup,
+      };
+      createdId = relationshipId;
+
+      return {
+        project: {
+          ...state.project,
+          tables: [...state.project.tables, bridge],
+          manyToMany: [...state.project.manyToMany, m2m],
+        },
+      };
+    });
+    return createdId;
+  },
+
+  updateManyToMany: (id, patch) =>
+    set((state) => {
+      const existing = state.project.manyToMany.find((m) => m.id === id);
+      if (!existing) return state;
+      const next: ManyToManyRelationshipDraft = { ...existing, ...patch };
+
+      const prefix = getProjectPrefix(state.project) ?? 'new';
+      const sidesChanged =
+        patch.side1 !== undefined || patch.side2 !== undefined;
+
+      // Re-derive bridge table naming and default lookups when a side changes,
+      // unless the user has manually edited the bridge name.
+      let tables = state.project.tables;
+      if (sidesChanged) {
+        const labelA = tableRefLabel(state.project.tables, next.side1);
+        const labelB = tableRefLabel(state.project.tables, next.side2);
+
+        if (!next.nameTouched) {
+          const schemaToken = buildBridgeSchemaToken(
+            prefix,
+            tableRefToken(state.project.tables, next.side1),
+            tableRefToken(state.project.tables, next.side2),
+          );
+          const displayName = `BRIDGE ${labelA} ${labelB}`;
+          tables = tables.map((t) =>
+            t.id === next.bridgeTableId
+              ? { ...t, displayName, pluralName: `${displayName}s`, schemaName: schemaToken }
+              : t,
+          );
+        }
+
+        // Only reset the lookup configs the caller did not explicitly provide.
+        const defaults = defaultBridgeLookups(labelA, labelB);
+        if (patch.side1Lookup === undefined) next.side1Lookup = defaults.side1Lookup;
+        if (patch.side2Lookup === undefined) next.side2Lookup = defaults.side2Lookup;
+      }
+
+      return {
+        project: {
+          ...state.project,
+          tables,
+          manyToMany: state.project.manyToMany.map((m) => (m.id === id ? next : m)),
+        },
+      };
+    }),
+
+  removeManyToMany: (id) =>
+    set((state) => {
+      const m2m = state.project.manyToMany.find((m) => m.id === id);
+      const bridgeId = m2m?.bridgeTableId;
+      const tables = bridgeId
+        ? state.project.tables.filter((t) => t.id !== bridgeId)
+        : state.project.tables;
+      return {
+        project: {
+          ...state.project,
+          tables,
+          manyToMany: state.project.manyToMany.filter((m) => m.id !== id),
+        },
+        selectedTableId:
+          bridgeId && state.selectedTableId === bridgeId
+            ? tables[0]?.id ?? null
+            : state.selectedTableId,
+      };
+    }),
 
   addGlobalChoice: (choice) => {
     const created = choice ?? makeGlobalChoice();

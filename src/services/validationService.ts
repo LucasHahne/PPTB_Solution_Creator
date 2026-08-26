@@ -3,9 +3,13 @@ import type { EntityDraft } from '../types/entity';
 import { FIELD_TYPE_CONFIGS } from '../constants/fieldTypes';
 import { RESERVED_FIELD_NAMES } from '../constants/defaults';
 import {
+  buildTableLogicalName,
   isValidPrefix,
   isValidUniqueName,
+  MAX_TABLE_LOGICAL_NAME,
+  SAFE_TABLE_LOGICAL_NAME,
   sanitizeSchemaToken,
+  sanitizeTableSchemaToken,
 } from './namingService';
 import { validateFieldConstraints } from '../utils/fieldConstraints';
 
@@ -121,7 +125,7 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[], globalCho
   if (!entity.displayName.trim()) {
     issues.push({ step: 'tables', severity: 'error', message: 'A table is missing a display name.' });
   }
-  if (!sanitizeSchemaToken(entity.schemaName)) {
+  if (!sanitizeTableSchemaToken(entity.schemaName)) {
     issues.push({ step: 'tables', severity: 'error', message: `Table "${label}" has an invalid schema name.` });
   }
 
@@ -184,6 +188,77 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[], globalCho
   }
 }
 
+function validateManyToMany(project: SolutionProject, issues: ValidationIssue[]) {
+  const prefix = getProjectPrefix(project);
+  const tableIds = new Set(project.tables.map((t) => t.id));
+
+  function sideValid(ref: SolutionProject['manyToMany'][number]['side1']): boolean {
+    if (ref.kind === 'project') return tableIds.has(ref.tableId);
+    return Boolean(ref.logicalName);
+  }
+
+  function sideLabel(ref: SolutionProject['manyToMany'][number]['side1']): string {
+    if (ref.kind === 'project') {
+      return project.tables.find((t) => t.id === ref.tableId)?.displayName || 'a table';
+    }
+    return ref.logicalName || 'a table';
+  }
+
+  for (const m2m of project.manyToMany ?? []) {
+    const bridge = project.tables.find((t) => t.id === m2m.bridgeTableId);
+    const label = bridge?.displayName || 'a many-to-many relationship';
+
+    if (!sideValid(m2m.side1) || !sideValid(m2m.side2)) {
+      issues.push({
+        step: 'relationships',
+        severity: 'error',
+        message: `M:N "${label}" references a table that no longer exists.`,
+      });
+    }
+
+    if (!bridge || bridge.bridge?.relationshipId !== m2m.id) {
+      issues.push({
+        step: 'relationships',
+        severity: 'error',
+        message: `M:N "${label}" is missing its bridge table.`,
+      });
+      continue;
+    }
+
+    const name1 = sanitizeSchemaToken(m2m.side1Lookup.schemaName);
+    const name2 = sanitizeSchemaToken(m2m.side2Lookup.schemaName);
+    if (!m2m.side1Lookup.displayName.trim() || !m2m.side2Lookup.displayName.trim()) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" has a lookup without a display name.` });
+    }
+    if (!name1 || !name2) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" has a lookup with an invalid schema name.` });
+    } else if (name1.toLowerCase() === name2.toLowerCase()) {
+      issues.push({
+        step: 'relationships',
+        severity: 'error',
+        message: `M:N "${label}" needs two distinct lookup schema names (they point at ${sideLabel(m2m.side1)} and ${sideLabel(m2m.side2)}).`,
+      });
+    }
+
+    if (prefix) {
+      const logicalName = buildTableLogicalName(prefix, bridge.schemaName);
+      if (logicalName.length > MAX_TABLE_LOGICAL_NAME) {
+        issues.push({
+          step: 'relationships',
+          severity: 'error',
+          message: `Bridge table "${label}" logical name (${logicalName}) exceeds ${MAX_TABLE_LOGICAL_NAME} characters.`,
+        });
+      } else if (logicalName.length > SAFE_TABLE_LOGICAL_NAME) {
+        issues.push({
+          step: 'relationships',
+          severity: 'warning',
+          message: `Bridge table "${label}" logical name is very long and may collide with its generated primary key.`,
+        });
+      }
+    }
+  }
+}
+
 /** Run all validation rules across the project. */
 export function validateProject(project: SolutionProject): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -199,7 +274,7 @@ export function validateProject(project: SolutionProject): ValidationIssue[] {
 
   const tableTokens = new Set<string>();
   for (const entity of project.tables) {
-    const token = sanitizeSchemaToken(entity.schemaName).toLowerCase();
+    const token = sanitizeTableSchemaToken(entity.schemaName).toLowerCase();
     if (token && tableTokens.has(token)) {
       issues.push({ step: 'tables', severity: 'error', message: `Duplicate table schema name "${token}".` });
     }
@@ -227,6 +302,8 @@ export function validateProject(project: SolutionProject): ValidationIssue[] {
       issues.push({ step: 'relationships', severity: 'error', message: 'A lookup is missing its parent table.' });
     }
   }
+
+  validateManyToMany(project, issues);
 
   return issues;
 }

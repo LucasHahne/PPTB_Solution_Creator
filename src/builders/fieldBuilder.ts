@@ -152,7 +152,7 @@ export function buildPrimaryNameAttribute(
   prefix: string,
   field: FieldDraft,
 ): Record<string, unknown> {
-  return {
+  const definition: Record<string, unknown> = {
     '@odata.type': odataType('String'),
     SchemaName: buildSchemaName(prefix, field.schemaName),
     DisplayName: makeLabel(field.displayName),
@@ -161,4 +161,10 @@ export function buildPrimaryNameAttribute(
     FormatName: { Value: 'Text' },
     IsPrimaryName: true,
   };
+  // Bridge tables use an autonumber primary name; carry the format through so it
+  // deploys as an autonumber column instead of a plain text one.
+  if (field.type === 'autonumber' && field.autoNumberFormat) {
+    definition.AutoNumberFormat = field.autoNumberFormat;
+  }
+  return definition;
 }

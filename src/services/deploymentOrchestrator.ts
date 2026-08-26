@@ -1,7 +1,10 @@
 import type { DeploymentStatus, LogLevel, SolutionProject } from '../types/project';
 import { buildEntityDefinition, getPrimaryNameField } from '../builders/entityBuilder';
 import { buildAttributeDefinition } from '../builders/fieldBuilder';
-import { buildOneToManyRelationship } from '../builders/relationshipBuilder';
+import {
+  buildBridgeLookupRelationship,
+  buildOneToManyRelationship,
+} from '../builders/relationshipBuilder';
 import { buildGlobalOptionSet, globalChoiceName } from '../builders/globalChoiceBuilder';
 import {
   createColumn,
@@ -16,7 +19,8 @@ import {
 } from './metadataService';
 import { createPublisher, findPublisher } from './publisherService';
 import { createSolution, findSolutionByUniqueName } from './solutionService';
-import { resolveRelationship, tableLogicalName } from './projectResolver';
+import type { ResolvedBridgeSide } from './projectResolver';
+import { resolveManyToMany, resolveRelationship, tableLogicalName } from './projectResolver';
 import { buildLogicalName } from './namingService';
 import { getProjectPrefix } from './validationService';
 import { toErrorMessage } from '../utils/errors';
@@ -47,7 +51,14 @@ export interface DeploymentResult {
   createdTables: number;
   createdColumns: number;
   createdRelationships: number;
+  createdBridgeLookups: number;
   createdGlobalChoices: number;
+}
+
+/** True when the error is Dataverse rejecting the cascade delete configuration. */
+function isCascadeConfigurationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /cascade/i.test(message);
 }
 
 /**
@@ -66,6 +77,7 @@ export async function deployProject(
     createdTables: 0,
     createdColumns: 0,
     createdRelationships: 0,
+    createdBridgeLookups: 0,
     createdGlobalChoices: 0,
   };
 
@@ -182,6 +194,32 @@ export async function deployProject(
       log('success', `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`);
     }
 
+    // Many-to-many relationships: the bridge table and its user columns were
+    // already created above (they live in project.tables). Here we create the
+    // two 1:N lookups that hang off the bridge, one per side. Skip ones that
+    // already exist so a partial deploy can be retried and still publish.
+    for (const m2m of project.manyToMany ?? []) {
+      const resolved = resolveManyToMany(prefix, project, m2m);
+      if (!resolved) {
+        log('warning', `Skipped a many-to-many relationship — could not resolve its tables.`);
+        continue;
+      }
+      const sides: { side: ResolvedBridgeSide; lookup: typeof m2m.side1Lookup }[] = [
+        { side: resolved.side1, lookup: m2m.side1Lookup },
+        { side: resolved.side2, lookup: m2m.side2Lookup },
+      ];
+      for (const { side, lookup } of sides) {
+        const created = await deployBridgeLookup(
+          prefix,
+          lookup,
+          side,
+          solutionUniqueName,
+          log,
+        );
+        if (created) result.createdBridgeLookups += 1;
+      }
+    }
+
     // Publish everything once at the end.
     log('info', 'Publishing customizations…');
     await publishAll();
@@ -194,12 +232,80 @@ export async function deployProject(
       result.createdTables +
         result.createdColumns +
         result.createdRelationships +
+        result.createdBridgeLookups +
         result.createdGlobalChoices >
       0;
     return { ...result, status: anyProgress ? 'partial' : 'error' };
   }
 
   return result;
+}
+
+/**
+ * Create one bridge lookup (a 1:N relationship on the bridge table). Skips it if
+ * it already exists, and if Dataverse rejects the cascade delete configuration
+ * it retries once with RemoveLink instead of aborting the whole deploy.
+ * Returns true when a relationship was actually created.
+ */
+async function deployBridgeLookup(
+  prefix: string,
+  lookup: {
+    displayName: string;
+    schemaName: string;
+    required: boolean;
+    cascadeDelete: 'RemoveLink' | 'Cascade' | 'Restrict';
+  },
+  side: ResolvedBridgeSide,
+  solutionUniqueName: string,
+  log: DeploymentLogger,
+): Promise<boolean> {
+  const definition = buildBridgeLookupRelationship(prefix, lookup, side);
+  const relationshipSchemaName = String(definition.SchemaName ?? '');
+
+  if (relationshipSchemaName) {
+    const existing = await findRelationshipMetadataId(
+      side.referenced.logicalName,
+      relationshipSchemaName,
+    );
+    if (existing) {
+      log('info', `Bridge lookup "${lookup.displayName}" already exists — skipping.`);
+      return false;
+    }
+  }
+
+  assertCloneable(`bridge lookup "${lookup.displayName}"`, definition);
+  try {
+    await createOneToMany(
+      definition,
+      solutionUniqueName,
+      side.referenced.logicalName,
+      relationshipSchemaName || undefined,
+    );
+  } catch (error) {
+    // Some ownership combinations reject Cascade delete; retry once with RemoveLink.
+    if (lookup.cascadeDelete === 'Cascade' && isCascadeConfigurationError(error)) {
+      log(
+        'warning',
+        `Cascade delete rejected for bridge lookup "${lookup.displayName}" — retrying with Remove link.`,
+      );
+      const fallback = buildBridgeLookupRelationship(prefix, lookup, side, 'RemoveLink');
+      assertCloneable(`bridge lookup "${lookup.displayName}" (fallback)`, fallback);
+      await createOneToMany(
+        fallback,
+        solutionUniqueName,
+        side.referenced.logicalName,
+        relationshipSchemaName || undefined,
+      );
+    } else {
+      throw error;
+    }
+  }
+
+  log(
+    'success',
+    `Created bridge lookup "${lookup.displayName}" (${side.bridgeLogicalName} → ${side.referenced.logicalName}).`,
+  );
+  return true;
 }
 
 /** Create the publisher/solution if new, and return the solution unique name. */

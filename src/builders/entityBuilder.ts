@@ -1,5 +1,5 @@
 import type { EntityDraft } from '../types/entity';
-import { buildSchemaName } from '../services/namingService';
+import { buildTableSchemaName } from '../services/namingService';
 import { buildPrimaryNameAttribute } from './fieldBuilder';
 import { makeLabel } from './labels';
 
@@ -23,7 +23,7 @@ export function buildEntityDefinition(
 
   return {
     '@odata.type': 'Microsoft.Dynamics.CRM.EntityMetadata',
-    SchemaName: buildSchemaName(prefix, entity.schemaName),
+    SchemaName: buildTableSchemaName(prefix, entity.schemaName),
     DisplayName: makeLabel(entity.displayName),
     DisplayCollectionName: makeLabel(entity.pluralName || `${entity.displayName}s`),
     ...(entity.description ? { Description: makeLabel(entity.description) } : {}),

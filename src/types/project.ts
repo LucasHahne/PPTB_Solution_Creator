@@ -1,6 +1,6 @@
 import type { EntityDraft } from './entity';
 import type { GlobalChoiceDraft } from './globalChoice';
-import type { LookupRelationshipDraft } from './relationship';
+import type { LookupRelationshipDraft, ManyToManyRelationshipDraft } from './relationship';
 import type { SolutionTarget } from './solution';
 
 export type WizardStep = 'solution' | 'tables' | 'fields' | 'relationships' | 'review';
@@ -18,6 +18,8 @@ export interface SolutionProject {
   solution: SolutionTarget;
   tables: EntityDraft[];
   relationships: LookupRelationshipDraft[];
+  /** Many-to-many relationships, each backed by an auto-managed bridge table. */
+  manyToMany: ManyToManyRelationshipDraft[];
   /** Project-level global option sets referenced by "Choice (global)" columns. */
   globalChoices: GlobalChoiceDraft[];
 }

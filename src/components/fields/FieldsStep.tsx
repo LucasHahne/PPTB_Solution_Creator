@@ -51,6 +51,9 @@ export function FieldsStep({
   const activeTable = tables.find((t) => t.id === activeId);
   const configuringField =
     activeTable?.fields.find((f) => f.id === configuringId) ?? null;
+  const activeBridgeM2m = activeTable?.bridge
+    ? project.manyToMany.find((m) => m.id === activeTable.bridge!.relationshipId)
+    : undefined;
 
   function handleDownloadSampleSchema() {
     downloadJson(SAMPLE_SCHEMA_FILENAME, buildSampleColumnSchema());
@@ -154,6 +157,18 @@ export function FieldsStep({
             tone={copyMessage.includes("copied") ? "success" : "warning"}
             title={copyMessage}
           />
+        </div>
+      )}
+
+      {activeBridgeM2m && (
+        <div className="mb-4">
+          <Alert tone="info" title="Bridge table">
+            This table's two relationship lookups (
+            <span className="font-medium">{activeBridgeM2m.side1Lookup.displayName}</span> and{" "}
+            <span className="font-medium">{activeBridgeM2m.side2Lookup.displayName}</span>) are
+            managed on the Relationships step and are not listed here. Any columns you add below are
+            created on the bridge table.
+          </Alert>
         </div>
       )}
 

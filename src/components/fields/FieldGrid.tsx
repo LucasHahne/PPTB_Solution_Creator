@@ -12,6 +12,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { FieldTypeSelect } from './FieldTypeSelect';
+import { FIELD_TYPE_CONFIGS } from '../../constants/fieldTypes';
 import { sanitizeSchemaToken, toPascalToken } from '../../services/namingService';
 
 const REQUIRED_OPTIONS: { value: RequiredLevel; label: string }[] = [
@@ -95,7 +96,7 @@ export function FieldGrid({
         header: 'Type',
         cell: ({ row }) =>
           row.original.isPrimaryName ? (
-            <Badge tone="neutral">Text (primary)</Badge>
+            <Badge tone="neutral">{FIELD_TYPE_CONFIGS[row.original.type].label} (primary)</Badge>
           ) : (
             <FieldTypeSelect
               value={row.original.type}

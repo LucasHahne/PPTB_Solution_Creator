@@ -3,7 +3,7 @@ import { COMMON_LOOKUP_TARGETS } from '../../constants/defaults';
 import { FIELD_TYPE_CONFIGS } from '../../constants/fieldTypes';
 import { getProjectPrefix } from '../../services/validationService';
 import { Badge } from '../ui/Badge';
-import type { LookupRelationshipDraft } from '../../types/relationship';
+import type { LookupRelationshipDraft, TableRef } from '../../types/relationship';
 
 export function ReviewSummary() {
   const project = useProjectStore((s) => s.project);
@@ -18,6 +18,11 @@ export function ReviewSummary() {
     if (rel.parent.kind === 'project') return tableName(rel.parent.tableId);
     const logicalName = rel.parent.logicalName;
     return COMMON_LOOKUP_TARGETS.find((t) => t.logicalName === logicalName)?.label ?? logicalName;
+  }
+
+  function sideName(ref: TableRef) {
+    if (ref.kind === 'project') return tableName(ref.tableId);
+    return COMMON_LOOKUP_TARGETS.find((t) => t.logicalName === ref.logicalName)?.label ?? ref.logicalName;
   }
 
   return (
@@ -57,6 +62,7 @@ export function ReviewSummary() {
                 <span className="text-xs text-slate-400">
                   {prefix}_{table.schemaName.toLowerCase()}
                 </span>
+                {table.bridge && <Badge tone="brand">Bridge</Badge>}
                 <Badge tone="neutral">{table.fields.length} columns</Badge>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -107,6 +113,25 @@ export function ReviewSummary() {
                 <Badge tone="brand">{parentName(rel)}</Badge>
                 <span className="text-slate-400">→</span>
                 <Badge tone="neutral">{tableName(rel.childTableId)}</Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {project.manyToMany.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            M:N relationships ({project.manyToMany.length})
+          </h3>
+          <ul className="mt-2 space-y-1.5">
+            {project.manyToMany.map((m2m) => (
+              <li key={m2m.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <Badge tone="brand">{sideName(m2m.side1)}</Badge>
+                <span className="text-slate-400">↔</span>
+                <Badge tone="brand">{sideName(m2m.side2)}</Badge>
+                <span className="text-slate-400">via</span>
+                <Badge tone="neutral">{tableName(m2m.bridgeTableId)}</Badge>
               </li>
             ))}
           </ul>

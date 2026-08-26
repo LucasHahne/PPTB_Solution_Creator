@@ -36,7 +36,10 @@ export function TableList() {
                   )}
                 >
                   <span className="truncate">{table.displayName || 'Untitled table'}</span>
-                  <Badge tone="neutral">{table.fields.length}</Badge>
+                  <span className="flex shrink-0 items-center gap-1">
+                    {table.bridge && <Badge tone="brand">Bridge</Badge>}
+                    <Badge tone="neutral">{table.fields.length}</Badge>
+                  </span>
                 </button>
               </li>
             ))}

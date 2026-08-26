@@ -7,17 +7,50 @@ import { Select } from '../ui/Select';
 import { Checkbox } from '../ui/Checkbox';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { sanitizeSchemaToken, toPascalToken } from '../../services/namingService';
+import { Alert } from '../ui/Alert';
+import { COMMON_LOOKUP_TARGETS } from '../../constants/defaults';
+import type { TableRef } from '../../types/relationship';
+import { toPascalToken } from '../../services/namingService';
 import { getProjectPrefix } from '../../services/validationService';
+
+/**
+ * Permissive live sanitizer for the schema-name input: keeps underscores so a
+ * user can type e.g. "BRIDGE_Order_Product" mid-word (the canonical
+ * sanitizeTableSchemaToken, applied at build/validation, trims trailing ones).
+ */
+function sanitizeTableSchemaInput(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9_]/g, '').replace(/^_+/, '');
+  return /^[0-9]/.test(cleaned) ? `N${cleaned}` : cleaned;
+}
 
 export function TableEditor({ table }: { table: EntityDraft }) {
   const updateTable = useProjectStore((s) => s.updateTable);
   const removeTable = useProjectStore((s) => s.removeTable);
   const duplicateTable = useProjectStore((s) => s.duplicateTable);
+  const removeManyToMany = useProjectStore((s) => s.removeManyToMany);
+  const setStep = useProjectStore((s) => s.setStep);
   const project = useProjectStore((s) => s.project);
   const prefix = getProjectPrefix(project) ?? '...';
 
   const [schemaTouched, setSchemaTouched] = useState(false);
+
+  const isBridge = Boolean(table.bridge);
+  const owningM2m = table.bridge
+    ? project.manyToMany.find((m) => m.id === table.bridge!.relationshipId)
+    : undefined;
+
+  function sideName(ref: TableRef): string {
+    if (ref.kind === 'project') return project.tables.find((t) => t.id === ref.tableId)?.displayName || 'Untitled';
+    return COMMON_LOOKUP_TARGETS.find((t) => t.logicalName === ref.logicalName)?.label ?? ref.logicalName;
+  }
+
+  function handleDelete() {
+    if (isBridge && owningM2m) {
+      removeManyToMany(owningM2m.id);
+    } else {
+      removeTable(table.id);
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -27,11 +60,30 @@ export function TableEditor({ table }: { table: EntityDraft }) {
           <Button variant="secondary" size="sm" onClick={() => duplicateTable(table.id)}>
             Duplicate
           </Button>
-          <Button variant="danger" size="sm" onClick={() => removeTable(table.id)}>
+          <Button variant="danger" size="sm" onClick={handleDelete}>
             Delete
           </Button>
         </div>
       </div>
+
+      {isBridge && (
+        <Alert tone="info" title="Bridge table" className="mb-4 max-w-2xl">
+          <p>
+            {owningM2m
+              ? `Auto-managed bridge for the many-to-many relationship between ${sideName(owningM2m.side1)} and ${sideName(owningM2m.side2)}.`
+              : 'Auto-managed bridge table for a many-to-many relationship.'}{' '}
+            Its two side lookups are configured on the{' '}
+            <button
+              type="button"
+              className="font-medium underline"
+              onClick={() => setStep('relationships')}
+            >
+              Relationships
+            </button>{' '}
+            step. You can still add your own columns below.
+          </p>
+        </Alert>
+      )}
 
       <div className="grid max-w-2xl gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -67,7 +119,7 @@ export function TableEditor({ table }: { table: EntityDraft }) {
               placeholder="Order"
               onChange={(e) => {
                 setSchemaTouched(true);
-                updateTable(table.id, { schemaName: sanitizeSchemaToken(e.target.value) });
+                updateTable(table.id, { schemaName: sanitizeTableSchemaInput(e.target.value) });
               }}
             />
           </div>

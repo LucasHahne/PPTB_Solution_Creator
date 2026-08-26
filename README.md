@@ -1,6 +1,6 @@
 # Solution Creator
 
-A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N lookups, review, and deploy — all from a single guided workflow.
+A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N lookups and M:N relationships (via auto-managed bridge tables), review, and deploy — all from a single guided workflow.
 
 Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/package/@lucas001-yt/pptb-solution-creator)
 
@@ -26,6 +26,8 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 - **1:N lookups** — relate tables (project tables or standard tables like Account/Contact) with cascade configuration.
 
+- **M:N via bridge tables** — model many-to-many relationships as an auto-managed bridge table (named `BRIDGE_Table1_Table2` by default) with a lookup to each side. The bridge is a real table, so you can add your own columns to it.
+
 - **Review & deploy** — validation summary, ordered deployment, a live progress log, and a single publish at the end.
 
 - **Draft autosave** — work is persisted via the ToolBox settings API and restored when you reopen the tool.
@@ -38,11 +40,9 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 3. **Fields** — define columns per table, or bulk-import from a validated JSON schema.
 
-4. **Lookups** — add 1:N relationships.
+4. **Relationships** — add 1:N lookups and M:N (many-to-many) relationships.
 
 5. **Review & Deploy** — confirm and push to Dataverse.
-
-> Many-to-many relationships are out of scope; Dataverse requires a bridge table for those.
 
 ## Requirements
 
@@ -54,9 +54,18 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 ## Update history
 
+### 1.2.0
+
+- Added **many-to-many (M:N) relationships** on the Relationships step. Each M:N is modelled as an auto-managed **bridge table** (named `BRIDGE_Table1_Table2` by default) with one 1:N lookup to each side, deployed through the normal table/column/relationship pipeline.
+- The bridge is a real project table, so it appears in the Tables and Fields steps and can hold your own extra columns (unlike a native Dataverse N:N intersect).
+- Bridge tables use an **autonumber primary name** column (e.g. `BRIDGE-{SEQNUM:6}`) by default; the format is editable in the field Configure panel.
+- Table schema names can now contain **underscores** (needed for the `BRIDGE_` convention), with the bridge logical name kept within Dataverse's length limits.
+- Bridge side lookups default to a cascading delete so link rows disappear with their parents; if the platform rejects the cascade configuration, deploy automatically retries that lookup with Remove link and logs a warning.
+- Renamed the "Lookups" step to "Relationships" (now split into 1:N lookups and M:N via bridge table).
+
 ### 1.1.0
 
-- Added many new column types to the Fields grid:
+- Added new column types to the Fields grid:
   - **Autonumber** — text column with a configurable `AutoNumberFormat` (e.g. `INV-{SEQNUM:5}`) and maximum length.
   - **Big whole number** (`BigInt`) and **floating point** (`Double`) numeric types.
   - **Multi-select choice** — reuses the local choice option editor.

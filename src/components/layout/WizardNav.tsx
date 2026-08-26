@@ -6,7 +6,7 @@ const STEP_LABELS: Record<WizardStep, string> = {
   solution: 'Solution',
   tables: 'Tables',
   fields: 'Fields',
-  relationships: 'Lookups',
+  relationships: 'Relationships',
   review: 'Review & Deploy',
 };
 
