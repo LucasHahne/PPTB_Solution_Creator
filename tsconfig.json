@@ -19,9 +19,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "types": ["@pptb/types"],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]
