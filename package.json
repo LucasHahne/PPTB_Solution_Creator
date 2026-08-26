@@ -37,7 +37,7 @@
     "preview": "vite preview",
     "watch": "vite build --watch",
     "dev-watch": "vite build --mode development --watch",
-    "finalize-package": "npm shrinkwrap",
+    "finalize-package": "npm install --package-lock-only && node -e \"const fs=require('fs'); fs.copyFileSync('package-lock.json','npm-shrinkwrap.json'); fs.unlinkSync('package-lock.json'); console.log('shrinkwrap ready:', require('./npm-shrinkwrap.json').version);\"",
     "validate": "pptb-validate"
   },
   "dependencies": {
