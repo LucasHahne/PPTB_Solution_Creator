@@ -113,13 +113,19 @@ function makeTable(displayName = ''): EntityDraft {
   };
 }
 
-/** A fresh autonumber primary-name field for a bridge table. */
-function bridgePrimaryField(): FieldDraft {
+/**
+ * A fresh autonumber primary-name field for a bridge table. The column mirrors
+ * the bridge table's name (e.g. display "BRIDGE Order Product", schema
+ * "BRIDGEOrderProduct") so the primary name reads meaningfully; the schema name
+ * is sanitized to alphanumerics like every other column. The value is still an
+ * autonumber using the BRIDGE-{SEQNUM:6} format.
+ */
+function bridgePrimaryField(displayName: string): FieldDraft {
   return {
     id: newId(),
     type: 'autonumber',
-    displayName: 'Name',
-    schemaName: 'Name',
+    displayName,
+    schemaName: toPascalToken(displayName),
     requiredLevel: 'ApplicationRequired',
     isPrimaryName: true,
     maxLength: 100,
@@ -187,7 +193,7 @@ function makeBridgeTable(
     ownershipType: 'UserOwned',
     hasActivities: false,
     hasNotes: false,
-    fields: [bridgePrimaryField()],
+    fields: [bridgePrimaryField(displayName)],
     bridge: { relationshipId },
   };
 }
@@ -325,7 +331,20 @@ export const useProjectStore = create<ProjectState>((set) => ({
     set((state) => ({
       project: {
         ...state.project,
-        tables: state.project.tables.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        tables: state.project.tables.map((t) => {
+          if (t.id !== id) return t;
+          const updated = { ...t, ...patch };
+          // For bridge tables, keep the autonumber primary-name column in sync
+          // when the table is renamed (schema sanitized to alphanumerics).
+          if (updated.bridge && patch.displayName !== undefined) {
+            updated.fields = updated.fields.map((f) =>
+              f.isPrimaryName
+                ? { ...f, displayName: updated.displayName, schemaName: toPascalToken(updated.displayName) }
+                : f,
+            );
+          }
+          return updated;
+        }),
       },
     })),
 
@@ -467,65 +486,84 @@ export const useProjectStore = create<ProjectState>((set) => ({
     })),
 
   mergeFieldsFromSchema: (tableId, entries) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        tables: state.project.tables.map((t) => {
-          if (t.id !== tableId) return t;
+    set((state) => {
+      // Global choices created on the fly for referenced-but-undefined names.
+      const newGlobalChoices: GlobalChoiceDraft[] = [];
 
-          // Resolve global choice references (carried by name in schema JSON) to
-          // the project's global choice ids.
-          const globalChoiceIdByKey = new Map(
-            state.project.globalChoices.map(
-              (c) =>
-                [
-                  (c.schemaName || toPascalToken(c.displayName)).toLowerCase(),
-                  c.id,
-                ] as const,
-            ),
-          );
-          const resolveGlobalChoice = (field: FieldDraft, name?: string): FieldDraft => {
-            if (field.type !== 'globalChoice' || !name) return field;
-            const id = globalChoiceIdByKey.get(toPascalToken(name).toLowerCase());
-            return id ? { ...field, globalChoiceId: id } : field;
-          };
+      // Normalized-key -> id map of existing plus newly created global choices.
+      const gcKey = (name: string) => toPascalToken(name).toLowerCase();
+      const globalChoiceIdByKey = new Map(
+        state.project.globalChoices.map(
+          (c) => [gcKey(c.schemaName || c.displayName), c.id] as const,
+        ),
+      );
 
-          const existingByKey = new Map(
-            t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
-          );
+      // Bind a "Choice (global)" column to a project global choice, creating a
+      // placeholder choice (with default options) if the project doesn't define
+      // one for that name yet. This keeps pasted global-choice columns bound to a
+      // real choice instead of dangling until the user opens the Global choices
+      // manager — the placeholder can then be refined there before deploy.
+      const ensureGlobalChoiceId = (name: string): string => {
+        const key = gcKey(name);
+        const existingId = globalChoiceIdByKey.get(key);
+        if (existingId) return existingId;
+        const created: GlobalChoiceDraft = { ...makeGlobalChoice(name), isPlaceholder: true };
+        newGlobalChoices.push(created);
+        globalChoiceIdByKey.set(key, created.id);
+        return created.id;
+      };
 
-          let fields = [...t.fields];
-          let primaryFieldId: string | null = null;
+      const resolveGlobalChoice = (field: FieldDraft, name?: string): FieldDraft => {
+        if (field.type !== 'globalChoice' || !name?.trim()) return field;
+        return { ...field, globalChoiceId: ensureGlobalChoiceId(name) };
+      };
 
-          for (const entry of entries) {
-            const key = normalizeSchemaKey(entry);
-            const existing = existingByKey.get(key);
-            if (existing) {
-              const updated = resolveGlobalChoice(
-                applySchemaEntryToField(existing, entry),
-                entry.globalChoiceName,
-              );
-              fields = fields.map((f) => (f.id === existing.id ? updated : f));
-              if (entry.isPrimaryName) primaryFieldId = existing.id;
-            } else {
-              const created = resolveGlobalChoice(
-                schemaEntryToFieldDraft(entry),
-                entry.globalChoiceName,
-              );
-              fields.push(created);
-              existingByKey.set(key, created);
-              if (entry.isPrimaryName) primaryFieldId = created.id;
-            }
+      const tables = state.project.tables.map((t) => {
+        if (t.id !== tableId) return t;
+
+        const existingByKey = new Map(
+          t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
+        );
+
+        let fields = [...t.fields];
+        let primaryFieldId: string | null = null;
+
+        for (const entry of entries) {
+          const key = normalizeSchemaKey(entry);
+          const existing = existingByKey.get(key);
+          if (existing) {
+            const updated = resolveGlobalChoice(
+              applySchemaEntryToField(existing, entry),
+              entry.globalChoiceName,
+            );
+            fields = fields.map((f) => (f.id === existing.id ? updated : f));
+            if (entry.isPrimaryName) primaryFieldId = existing.id;
+          } else {
+            const created = resolveGlobalChoice(
+              schemaEntryToFieldDraft(entry),
+              entry.globalChoiceName,
+            );
+            fields.push(created);
+            existingByKey.set(key, created);
+            if (entry.isPrimaryName) primaryFieldId = created.id;
           }
+        }
 
-          if (primaryFieldId) {
-            fields = fields.map((f) => ({ ...f, isPrimaryName: f.id === primaryFieldId }));
-          }
+        if (primaryFieldId) {
+          fields = fields.map((f) => ({ ...f, isPrimaryName: f.id === primaryFieldId }));
+        }
 
-          return { ...t, fields };
-        }),
-      },
-    })),
+        return { ...t, fields };
+      });
+
+      return {
+        project: {
+          ...state.project,
+          tables,
+          globalChoices: [...state.project.globalChoices, ...newGlobalChoices],
+        },
+      };
+    }),
 
   addRelationship: (rel) =>
     set((state) => ({
@@ -613,7 +651,19 @@ export const useProjectStore = create<ProjectState>((set) => ({
           const displayName = `BRIDGE ${labelA} ${labelB}`;
           tables = tables.map((t) =>
             t.id === next.bridgeTableId
-              ? { ...t, displayName, pluralName: `${displayName}s`, schemaName: schemaToken }
+              ? {
+                  ...t,
+                  displayName,
+                  pluralName: `${displayName}s`,
+                  schemaName: schemaToken,
+                  // Keep the autonumber primary-name column in sync with the
+                  // bridge table name (schema sanitized to alphanumerics).
+                  fields: t.fields.map((f) =>
+                    f.isPrimaryName
+                      ? { ...f, displayName, schemaName: toPascalToken(displayName) }
+                      : f,
+                  ),
+                }
               : t,
           );
         }

@@ -11,4 +11,11 @@ export interface GlobalChoiceDraft {
   schemaName: string;
   description?: string;
   options: OptionDraft[];
+  /**
+   * True when this choice was auto-created as a placeholder while importing a
+   * column schema that referenced a global choice the project didn't define yet.
+   * It carries default options that the user should review; the flag clears once
+   * the options are edited in the Global choices manager.
+   */
+  isPlaceholder?: boolean;
 }

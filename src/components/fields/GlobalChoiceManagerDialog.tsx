@@ -1,6 +1,8 @@
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
+import { cn } from '../ui/cn';
 import { OptionSetEditor } from './OptionSetEditor';
 import { useProjectStore } from '../../store/projectStore';
 import { getProjectPrefix } from '../../services/validationService';
@@ -56,8 +58,19 @@ export function GlobalChoiceManagerDialog({
         {globalChoices.map((choice) => (
           <div
             key={choice.id}
-            className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+            className={cn(
+              'space-y-3 rounded-lg border p-3',
+              choice.isPlaceholder
+                ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/30'
+                : 'border-slate-200 dark:border-slate-700',
+            )}
           >
+            {choice.isPlaceholder && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <Badge tone="warning">Auto-created</Badge>
+                <span>Imported placeholder with default options — review them before deploying.</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -93,7 +106,13 @@ export function GlobalChoiceManagerDialog({
               </label>
               <OptionSetEditor
                 options={choice.options}
-                onChange={(options) => updateGlobalChoice(choice.id, { options })}
+                onChange={(options) =>
+                  updateGlobalChoice(
+                    choice.id,
+                    // Editing the options clears the auto-created placeholder mark.
+                    choice.isPlaceholder ? { options, isPlaceholder: false } : { options },
+                  )
+                }
               />
             </div>
 

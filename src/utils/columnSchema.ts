@@ -148,35 +148,117 @@ export function serializeColumnSchemaJson(document: ColumnSchemaDocument): strin
   return JSON.stringify(document, null, 2);
 }
 
-/** Example schema documenting common column types and attributes. */
+/**
+ * Example schema documenting every importable column type and its attributes.
+ *
+ * This covers all column types the Solution Creator can create (everything in
+ * FIELD_TYPE_ORDER — lookups and relationships are managed on the Relationships
+ * step and are intentionally not part of this format). Values stay within the
+ * documented Dataverse bounds so the sample round-trips cleanly through import.
+ *
+ * Note on relationships (v1.2.0): 1:N lookups and M:N (bridge table)
+ * relationships are configured on the Relationships step, not here. Bridge
+ * tables use an autonumber column as their primary name — see the autonumber
+ * example below for the shape of that column.
+ */
 export function buildSampleColumnSchema(): ColumnSchemaDocument {
   return {
     schemaVersion: COLUMN_SCHEMA_VERSION,
     kind: COLUMN_SCHEMA_KIND,
     exportedAt: new Date().toISOString(),
+    tableDisplayName: 'Sample (every column type)',
     columns: [
       {
         type: 'text',
-        displayName: 'Order Number',
-        schemaName: 'OrderNumber',
-        description: 'Unique order reference',
+        displayName: 'Name',
+        schemaName: 'Name',
+        description: 'Primary name column. Exactly one column may set isPrimaryName.',
         requiredLevel: 'ApplicationRequired',
+        isPrimaryName: true,
         maxLength: 100,
       },
       {
-        type: 'currency',
-        displayName: 'Amount',
-        schemaName: 'Amount',
-        minValue: 0,
-        maxValue: 1000000,
-        precision: 2,
+        type: 'multiline',
+        displayName: 'Description',
+        schemaName: 'Description',
+        description: 'Memo column rendered as a multi-line text area.',
+        requiredLevel: 'None',
+        maxLength: 2000,
+      },
+      {
+        type: 'email',
+        displayName: 'Contact Email',
+        schemaName: 'ContactEmail',
+        maxLength: 100,
+      },
+      {
+        type: 'url',
+        displayName: 'Website',
+        schemaName: 'Website',
+        maxLength: 200,
+      },
+      {
+        type: 'phone',
+        displayName: 'Phone',
+        schemaName: 'Phone',
+        maxLength: 50,
+      },
+      {
+        type: 'autonumber',
+        displayName: 'Order Number',
+        schemaName: 'OrderNumber',
+        description:
+          'Autonumber (v1.1.0). Bridge tables (v1.2.0) use this type as their primary name, e.g. BRIDGE-{SEQNUM:6}.',
+        maxLength: 100,
+        autoNumberFormat: 'ORD-{SEQNUM:5}',
       },
       {
         type: 'wholeNumber',
         displayName: 'Quantity',
         schemaName: 'Quantity',
-        minValue: 1,
-        maxValue: 9999,
+        minValue: 0,
+        maxValue: 100000,
+      },
+      {
+        type: 'bigint',
+        displayName: 'External Reference',
+        schemaName: 'ExternalReference',
+        description: 'Big whole number (v1.1.0) for values beyond the standard whole number range.',
+      },
+      {
+        type: 'decimal',
+        displayName: 'Unit Price',
+        schemaName: 'UnitPrice',
+        minValue: 0,
+        maxValue: 1000000,
+        precision: 2,
+      },
+      {
+        type: 'double',
+        displayName: 'Latitude',
+        schemaName: 'Latitude',
+        description: 'Floating point number (v1.1.0).',
+        minValue: -90,
+        maxValue: 90,
+        precision: 5,
+      },
+      {
+        type: 'currency',
+        displayName: 'Total Amount',
+        schemaName: 'TotalAmount',
+        minValue: 0,
+        maxValue: 1000000,
+        precision: 2,
+      },
+      {
+        type: 'dateOnly',
+        displayName: 'Order Date',
+        schemaName: 'OrderDate',
+      },
+      {
+        type: 'dateTime',
+        displayName: 'Delivery Time',
+        schemaName: 'DeliveryTime',
       },
       {
         type: 'boolean',
@@ -188,6 +270,7 @@ export function buildSampleColumnSchema(): ColumnSchemaDocument {
         type: 'choice',
         displayName: 'Status',
         schemaName: 'Status',
+        description: 'Local choice with explicit option values.',
         options: [
           { label: 'Draft', value: 1 },
           { label: 'Submitted', value: 2 },
@@ -195,9 +278,37 @@ export function buildSampleColumnSchema(): ColumnSchemaDocument {
         ],
       },
       {
-        type: 'dateOnly',
-        displayName: 'Due Date',
-        schemaName: 'DueDate',
+        type: 'multiselect',
+        displayName: 'Tags',
+        schemaName: 'Tags',
+        description: 'Multi-select choice (v1.1.0). Users can pick more than one value.',
+        options: [
+          { label: 'Urgent', value: 1 },
+          { label: 'Follow Up', value: 2 },
+          { label: 'Archived', value: 3 },
+        ],
+      },
+      {
+        type: 'globalChoice',
+        displayName: 'Priority',
+        schemaName: 'Priority',
+        description:
+          'Choice (global) (v1.1.0). References a global choice by its unprefixed schema name. On import, a placeholder global choice is created automatically if the project does not already define one — refine its options in the Global choices manager.',
+        globalChoiceName: 'PriorityLevel',
+      },
+      {
+        type: 'file',
+        displayName: 'Attachment',
+        schemaName: 'Attachment',
+        description: 'File column (v1.1.0). maxSizeInKB is validated against documented limits.',
+        maxSizeInKB: 32768,
+      },
+      {
+        type: 'image',
+        displayName: 'Photo',
+        schemaName: 'Photo',
+        description: 'Image column (v1.1.0).',
+        maxSizeInKB: 10240,
       },
     ],
     supportedTypes: buildSupportedTypeReference(),
