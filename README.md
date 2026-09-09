@@ -54,6 +54,10 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 ## Update history
 
+### 1.1.6
+
+- Fixed shrinkwrap issue for npm package deployment.
+
 ### 1.1.5
 
 - Fixed dark mode on selected surfaces ([#3](https://github.com/LucasHahne/PPTB_Solution_Creator/issues/3)). The `brand` palette was missing its `950` shade, so the solution mode cards, the selected table in the Tables sidebar, and info notices kept a light background behind light text.
