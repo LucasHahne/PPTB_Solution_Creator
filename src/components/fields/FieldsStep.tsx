@@ -87,6 +87,7 @@ export function FieldsStep({
     <StepContainer
       title="Add columns"
       description="Define the columns for each table. Pick the primary name column with the radio button."
+      fill
       titleActions={
         <>
           <Button
@@ -148,62 +149,62 @@ export function FieldsStep({
         </Select>
       }
     >
-      {copyMessage && (
-        <div className="mb-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        {copyMessage && (
           <Alert
             tone={copyMessage.includes("copied") ? "success" : "warning"}
             title={copyMessage}
           />
-        </div>
-      )}
+        )}
 
-      {activeTable && (
-        <div className="flex h-[26rem] overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-              <Button size="sm" onClick={() => addField(activeTable.id)}>
-                + Add column
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  addFields(
-                    activeTable.id,
-                    Array.from({ length: 5 }, () => makeField("text")),
-                  )
-                }
-              >
-                + Add 5
-              </Button>
-              <span className="ml-auto text-xs text-slate-400">
-                {activeTable.fields.length} column(s)
-              </span>
+        {activeTable && (
+          <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-700">
+                <Button size="sm" onClick={() => addField(activeTable.id)}>
+                  + Add column
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    addFields(
+                      activeTable.id,
+                      Array.from({ length: 5 }, () => makeField("text")),
+                    )
+                  }
+                >
+                  + Add 5
+                </Button>
+                <span className="ml-auto text-xs text-slate-400">
+                  {activeTable.fields.length} column(s)
+                </span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-3">
+                <FieldGrid
+                  tableId={activeTable.id}
+                  prefix={prefix}
+                  configuringId={configuringId}
+                  onConfigure={(id) =>
+                    setConfiguringId((cur) => (cur === id ? null : id))
+                  }
+                />
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2">
-              <FieldGrid
+
+            {configuringField && (
+              <FieldConfigPanel
                 tableId={activeTable.id}
-                prefix={prefix}
-                configuringId={configuringId}
-                onConfigure={(id) =>
-                  setConfiguringId((cur) => (cur === id ? null : id))
-                }
+                field={configuringField}
+                onClose={() => setConfiguringId(null)}
               />
-            </div>
+            )}
           </div>
+        )}
 
-          {configuringField && (
-            <FieldConfigPanel
-              tableId={activeTable.id}
-              field={configuringField}
-              onClose={() => setConfiguringId(null)}
-            />
-          )}
+        <div className="shrink-0">
+          <UnsupportedColumnTypesNote />
         </div>
-      )}
-
-      <div className="mt-4">
-        <UnsupportedColumnTypesNote />
       </div>
 
       {activeTable && (

@@ -36,6 +36,13 @@ export function buildOneToManyRelationship(
     ReferencedEntity: resolved.parentLogicalName,
     ReferencedAttribute: resolved.parentPrimaryKey,
     ReferencingEntity: resolved.childLogicalName,
+    // Set navigation property names explicitly so they are deterministic. Left
+    // unset, Dataverse derives the referenced-side collection nav prop from the
+    // relationship SchemaName, which is what collides on retry ("… is not
+    // unique within an entity") after a create that the host failed to
+    // acknowledge (missing OData-EntityId header).
+    ReferencedEntityNavigationPropertyName: relationshipSchema,
+    ReferencingEntityNavigationPropertyName: lookupSchema,
     CascadeConfiguration: {
       Assign: 'NoCascade',
       Delete: rel.cascadeDelete,

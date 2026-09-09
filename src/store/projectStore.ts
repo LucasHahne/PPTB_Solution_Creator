@@ -15,6 +15,7 @@ import {
 import { newId } from '../utils/ids';
 import { FIELD_TYPE_CONFIGS } from '../constants/fieldTypes';
 import { toPascalToken } from '../services/namingService';
+import { ensureGlobalChoice, ensureProjectGlobalChoices } from '../utils/globalChoiceEnsure';
 
 function emptyProject(): SolutionProject {
   return {
@@ -153,10 +154,14 @@ export const useProjectStore = create<ProjectState>((set) => ({
   selectedTableId: null,
   hydrated: false,
 
-  setStep: (step) => set({ currentStep: step }),
+  setStep: (step) =>
+    set((state) => ({
+      currentStep: step,
+      project: ensureProjectGlobalChoices(state.project),
+    })),
 
   hydrate: (project) => {
-    const normalized = normalizeProject(project);
+    const normalized = ensureProjectGlobalChoices(normalizeProject(project));
     set({
       project: normalized,
       hydrated: true,
@@ -293,19 +298,31 @@ export const useProjectStore = create<ProjectState>((set) => ({
     })),
 
   updateField: (tableId, fieldId, patch) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        tables: state.project.tables.map((t) =>
-          t.id === tableId
-            ? {
-                ...t,
-                fields: t.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)),
-              }
-            : t,
-        ),
-      },
-    })),
+    set((state) => {
+      let globalChoices = state.project.globalChoices;
+      const tables = state.project.tables.map((t) => {
+        if (t.id !== tableId) return t;
+        return {
+          ...t,
+          fields: t.fields.map((f) => {
+            if (f.id !== fieldId) return f;
+            const next = { ...f, ...patch };
+            if (next.type !== 'globalChoice') return next;
+            const bound = next.globalChoiceId
+              && globalChoices.some((c) => c.id === next.globalChoiceId);
+            if (bound) return next;
+            const result = ensureGlobalChoice(globalChoices, {
+              displayName: next.displayName,
+              schemaName: next.schemaName,
+              options: next.options,
+            });
+            globalChoices = result.choices;
+            return result.id ? { ...next, globalChoiceId: result.id } : next;
+          }),
+        };
+      });
+      return { project: { ...state.project, tables, globalChoices } };
+    }),
 
   removeField: (tableId, fieldId) =>
     set((state) => ({
@@ -357,65 +374,61 @@ export const useProjectStore = create<ProjectState>((set) => ({
     })),
 
   mergeFieldsFromSchema: (tableId, entries) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        tables: state.project.tables.map((t) => {
-          if (t.id !== tableId) return t;
+    set((state) => {
+      let globalChoices = state.project.globalChoices;
 
-          // Resolve global choice references (carried by name in schema JSON) to
-          // the project's global choice ids.
-          const globalChoiceIdByKey = new Map(
-            state.project.globalChoices.map(
-              (c) =>
-                [
-                  (c.schemaName || toPascalToken(c.displayName)).toLowerCase(),
-                  c.id,
-                ] as const,
-            ),
-          );
-          const resolveGlobalChoice = (field: FieldDraft, name?: string): FieldDraft => {
-            if (field.type !== 'globalChoice' || !name) return field;
-            const id = globalChoiceIdByKey.get(toPascalToken(name).toLowerCase());
-            return id ? { ...field, globalChoiceId: id } : field;
-          };
+      const tables = state.project.tables.map((t) => {
+        if (t.id !== tableId) return t;
 
-          const existingByKey = new Map(
-            t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
-          );
+        const bindGlobalChoice = (field: FieldDraft, entry: ColumnSchemaEntry): FieldDraft => {
+          if (field.type !== 'globalChoice') return field;
+          const result = ensureGlobalChoice(globalChoices, {
+            displayName: field.displayName || entry.globalChoiceName || '',
+            schemaName: entry.globalChoiceName || field.schemaName,
+            options: entry.options,
+            updateOptions: Boolean(entry.options?.length),
+          });
+          globalChoices = result.choices;
+          return result.id ? { ...field, globalChoiceId: result.id } : field;
+        };
 
-          let fields = [...t.fields];
-          let primaryFieldId: string | null = null;
+        const existingByKey = new Map(
+          t.fields.map((f) => [normalizeFieldSchemaKey(f), f] as const),
+        );
 
-          for (const entry of entries) {
-            const key = normalizeSchemaKey(entry);
-            const existing = existingByKey.get(key);
-            if (existing) {
-              const updated = resolveGlobalChoice(
-                applySchemaEntryToField(existing, entry),
-                entry.globalChoiceName,
-              );
-              fields = fields.map((f) => (f.id === existing.id ? updated : f));
-              if (entry.isPrimaryName) primaryFieldId = existing.id;
-            } else {
-              const created = resolveGlobalChoice(
-                schemaEntryToFieldDraft(entry),
-                entry.globalChoiceName,
-              );
-              fields.push(created);
-              existingByKey.set(key, created);
-              if (entry.isPrimaryName) primaryFieldId = created.id;
-            }
+        let fields = [...t.fields];
+        let primaryFieldId: string | null = null;
+
+        for (const entry of entries) {
+          const key = normalizeSchemaKey(entry);
+          const existing = existingByKey.get(key);
+          if (existing) {
+            const updated = bindGlobalChoice(applySchemaEntryToField(existing, entry), entry);
+            fields = fields.map((f) => (f.id === existing.id ? updated : f));
+            if (entry.isPrimaryName) primaryFieldId = existing.id;
+          } else {
+            const created = bindGlobalChoice(schemaEntryToFieldDraft(entry), entry);
+            fields.push(created);
+            existingByKey.set(key, created);
+            if (entry.isPrimaryName) primaryFieldId = created.id;
           }
+        }
 
-          if (primaryFieldId) {
-            fields = fields.map((f) => ({ ...f, isPrimaryName: f.id === primaryFieldId }));
-          }
+        if (primaryFieldId) {
+          fields = fields.map((f) => ({ ...f, isPrimaryName: f.id === primaryFieldId }));
+        }
 
-          return { ...t, fields };
-        }),
-      },
-    })),
+        return { ...t, fields };
+      });
+
+      return {
+        project: {
+          ...state.project,
+          tables,
+          globalChoices,
+        },
+      };
+    }),
 
   addRelationship: (rel) =>
     set((state) => ({

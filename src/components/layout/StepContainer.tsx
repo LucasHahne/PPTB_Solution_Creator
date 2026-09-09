@@ -7,6 +7,7 @@ export function StepContainer({
   titleActions,
   actions,
   children,
+  fill = false,
   onBack,
   onNext,
   nextLabel = 'Next',
@@ -17,13 +18,14 @@ export function StepContainer({
   titleActions?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  fill?: boolean;
   onBack?: () => void;
   onNext?: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-start justify-between gap-4 px-5 pt-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -37,7 +39,15 @@ export function StepContainer({
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+      <div
+        className={
+          fill
+            ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4'
+            : 'flex-1 overflow-y-auto px-5 py-4'
+        }
+      >
+        {children}
+      </div>
 
       {(onBack || onNext) && (
         <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 dark:border-slate-700">

@@ -8,6 +8,7 @@ import {
   createGlobalOptionSet,
   createOneToMany,
   createTable,
+  findAttributeMetadataId,
   findEntityMetadataId,
   findGlobalOptionSetMetadataId,
   findRelationshipMetadataId,
@@ -19,6 +20,7 @@ import { createSolution, findSolutionByUniqueName } from './solutionService';
 import { resolveRelationship, tableLogicalName } from './projectResolver';
 import { buildLogicalName } from './namingService';
 import { getProjectPrefix } from './validationService';
+import { ensureProjectGlobalChoices } from '../utils/globalChoiceEnsure';
 import { toErrorMessage } from '../utils/errors';
 
 export type DeploymentLogger = (level: LogLevel, message: string) => void;
@@ -58,7 +60,7 @@ export interface DeploymentResult {
  * result. There is no automatic rollback (Dataverse does not support it here).
  */
 export async function deployProject(
-  project: SolutionProject,
+  incoming: SolutionProject,
   log: DeploymentLogger,
 ): Promise<DeploymentResult> {
   const result: DeploymentResult = {
@@ -68,6 +70,10 @@ export async function deployProject(
     createdRelationships: 0,
     createdGlobalChoices: 0,
   };
+
+  // Create any missing global-choice drafts and bind columns to them so deploy
+  // can create the option set first, then reference it from the column.
+  const project = ensureProjectGlobalChoices(incoming);
 
   const prefix = getProjectPrefix(project);
   if (!prefix) {
@@ -94,7 +100,7 @@ export async function deployProject(
       const name = globalChoiceName(prefix, choice);
       let metadataId = await findGlobalOptionSetMetadataId(name);
       if (metadataId) {
-        log('info', `Global choice "${choice.displayName}" already exists — reusing it.`);
+        log('info', `Global choice "${choice.displayName}" already exists as "${name}" — reusing it with its existing options.`);
       } else {
         const definition = buildGlobalOptionSet(prefix, choice);
         assertCloneable(`global choice "${choice.displayName}"`, definition);
@@ -137,7 +143,7 @@ export async function deployProject(
           continue;
         }
         if (field.type === 'globalChoice' && !field.globalChoiceId) {
-          log('warning', `Skipped column "${field.displayName}" — no global choice selected.`);
+          log('warning', `Skipped column "${field.displayName}" — could not create or bind a global choice.`);
           continue;
         }
         const globalOptionSetBind = field.globalChoiceId
@@ -161,15 +167,28 @@ export async function deployProject(
       }
       const definition = buildOneToManyRelationship(prefix, rel, resolved);
       const relationshipSchemaName = String(definition.SchemaName ?? '');
+      const lookupColumnLogicalName = buildLogicalName(prefix, rel.lookupSchemaName);
       if (relationshipSchemaName) {
         const existingRel = await findRelationshipMetadataId(
           resolved.parentLogicalName,
           relationshipSchemaName,
+          resolved.childLogicalName,
         );
         if (existingRel) {
           log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
           continue;
         }
+      }
+      // Even if the relationship wasn't found by SchemaName, the lookup column on
+      // the child is a reliable signal that a prior (unacknowledged) create
+      // succeeded. Skip rather than retry into a NavigationPropertyName clash.
+      const existingColumn = await findAttributeMetadataId(
+        resolved.childLogicalName,
+        lookupColumnLogicalName,
+      );
+      if (existingColumn) {
+        log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+        continue;
       }
       assertCloneable(`lookup "${rel.lookupDisplayName}"`, definition);
       await createOneToMany(
@@ -177,6 +196,7 @@ export async function deployProject(
         solutionUniqueName,
         resolved.parentLogicalName,
         relationshipSchemaName || undefined,
+        resolved.childLogicalName,
       );
       result.createdRelationships += 1;
       log('success', `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`);

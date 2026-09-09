@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { StepContainer } from '../layout/StepContainer';
 import { ReviewSummary } from './ReviewSummary';
@@ -7,7 +8,9 @@ import { StepIssues } from '../shared/StepIssues';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { hasBlockingIssues, validateProject } from '../../services/validationService';
+import { ensureProjectGlobalChoices } from '../../utils/globalChoiceEnsure';
 import { useDeployment } from '../../hooks/useDeployment';
+import { useGlobalChoicesCatalog } from '../../hooks/useGlobalChoicesCatalog';
 
 export function ReviewStep({
   onBack,
@@ -20,8 +23,17 @@ export function ReviewStep({
   const reset = useProjectStore((s) => s.reset);
   const setStep = useProjectStore((s) => s.setStep);
   const { status, logs, run } = useDeployment();
+  const { names: existingGlobalChoiceNames } =
+    useGlobalChoicesCatalog(hasConnection);
 
-  const issues = validateProject(project);
+  useEffect(() => {
+    const next = ensureProjectGlobalChoices(project);
+    if (next !== project) {
+      useProjectStore.setState({ project: next });
+    }
+  }, [project]);
+
+  const issues = validateProject(project, existingGlobalChoiceNames);
   const blocking = hasBlockingIssues(issues);
   const canDeploy = hasConnection && !blocking;
 

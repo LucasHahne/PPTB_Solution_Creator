@@ -20,11 +20,11 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 - **Choice option editor** — configure local and multi-select choice columns with Choice / Choice value pairs and bulk paste (`Active:1, Inactive:2`).
 
-- **Global choices** — define shared option sets once in the Global choices manager, then bind any number of "Choice (global)" columns to them; created before columns and reused on retry.
+- **Global choices** — define shared option sets once in the Global choices manager, then bind any number of "Choice (global)" columns to them; created before columns and reused on retry. Names that already exist in the environment are detected and reused instead of being created again.
 
 - **Autonumber columns** — configure the format (e.g. `INV-{SEQNUM:5}`) and maximum length.
 
-- **1:N lookups** — relate tables (project tables or standard tables like Account/Contact) with cascade configuration.
+- **1:N lookups** — relate tables with cascade configuration; pick the parent from your project tables, the common standard tables, or any searchable table in the connected environment.
 
 - **Review & deploy** — validation summary, ordered deployment, a live progress log, and a single publish at the end.
 
@@ -53,6 +53,22 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 - The connected user needs the **System Customizer** (or System Administrator) role to create publishers, solutions, tables, columns, and relationships.
 
 ## Update history
+
+### 1.1.5
+
+- Fixed dark mode on selected surfaces ([#3](https://github.com/LucasHahne/PPTB_Solution_Creator/issues/3)). The `brand` palette was missing its `950` shade, so the solution mode cards, the selected table in the Tables sidebar, and info notices kept a light background behind light text.
+- **Searchable lookup parents** — the Add lookup dialog now offers every table in the connected environment, searchable by display name or logical name and grouped into project, common, and environment tables. It previously reported how many tables existed while only offering five standard ones. Intersect (bridge) tables are filtered out since they cannot be lookup parents.
+- The lookup name fields now suggest a placeholder derived from the selected child table.
+- **More resilient lookup deployment** — relationship creates that Dataverse accepts but the host cannot acknowledge no longer abort the deploy or collide on retry:
+  - Relationship lookups fall back to listing the parent's relationships even when the keyed request succeeds without an id, and then to the child's (much smaller) `ManyToOneRelationships`.
+  - `0x80072551` (`NavigationPropertyName … is not unique`) is treated as "already created" and recovered by lookup, with one short retry for metadata lag.
+  - A lookup is skipped when the child table already has its lookup column, not just when the relationship is found by schema name.
+  - Navigation property names are now set explicitly so they are deterministic rather than derived from the relationship schema name.
+- **Global choices are checked against the environment** — a name already used by a global option set in the connected environment cannot be created a second time. The Global choices manager now flags those entries, hides the local option editor for them (their options are managed in the environment), and the Review step warns that they will be reused as-is. Rename the schema name to define a separate global choice instead.
+- **Collapsible global choices** — once there is more than one, each collapses to a summary row showing its display name, prefixed schema name, and option count (or the "already in environment" flag), so a long list stays manageable. Newly added choices open automatically.
+- **Global choice columns no longer block deploy** — a "Choice (global)" column with nothing selected is now resolved automatically instead of failing validation. The column is matched against the global choices already set up in the tool, and one is created and referenced during deployment when no match exists. Resolution runs on the Review step and again during deployment.
+- **Fields step layout** — the column grid fills the available height with sticky headers and its own scroll area, instead of a fixed-height box.
+- Build/tooling: removed the deprecated `baseUrl` from `tsconfig.json` and updated `finalize-package` for npm 12, where shrinkwrap generation changed.
 
 ### 1.1.0
 

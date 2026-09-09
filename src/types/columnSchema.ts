@@ -33,7 +33,11 @@ export interface ColumnSchemaEntry {
   maxSizeInKB?: number;
   /** Autonumber format pattern. */
   autoNumberFormat?: string;
-  /** Global choice reference, by its (unprefixed) schema name. */
+  /**
+   * Global choice reference, by its (unprefixed) schema name. If no matching
+   * project global choice exists, one is created on import (using `options` when
+   * provided) and created in Dataverse during deploy before the column is bound.
+   */
   globalChoiceName?: string;
 }
 

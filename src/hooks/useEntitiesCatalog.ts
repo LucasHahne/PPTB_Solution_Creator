@@ -23,8 +23,12 @@ export function useEntitiesCatalog(enabled: boolean) {
         'LogicalName',
         'DisplayName',
         'IsCustomizable',
+        'IsIntersect',
       ]);
       const mapped = result.value
+        // Intersect (bridge) tables back N:N relationships and cannot be used as
+        // 1:N lookup parents, so keep them out of the picker.
+        .filter((meta) => meta.IsIntersect !== true)
         .map((meta) => {
           const display =
             meta.DisplayName?.LocalizedLabels?.[0]?.Label ?? meta.LogicalName;

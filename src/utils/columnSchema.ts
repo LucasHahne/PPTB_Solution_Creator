@@ -45,7 +45,7 @@ const TYPE_ATTRIBUTE_MAP: Record<FieldType, readonly string[]> = {
   boolean: [...BASE_ATTRIBUTES, 'defaultBoolean'],
   choice: [...BASE_ATTRIBUTES, 'options'],
   multiselect: [...BASE_ATTRIBUTES, 'options'],
-  globalChoice: [...BASE_ATTRIBUTES, 'globalChoiceName'],
+  globalChoice: [...BASE_ATTRIBUTES, 'globalChoiceName', 'options'],
   file: [...BASE_ATTRIBUTES, 'maxSizeInKB'],
   image: [...BASE_ATTRIBUTES, 'maxSizeInKB'],
   lookup: [...BASE_ATTRIBUTES],
@@ -61,7 +61,7 @@ export function buildSupportedTypeReference(): ColumnTypeReference[] {
 
 function fieldToSchemaEntry(
   field: FieldDraft,
-  globalChoiceNameById?: Map<string, string>,
+  globalChoices: GlobalChoiceDraft[] = [],
 ): ColumnSchemaEntry | null {
   if (field.type === 'lookup') return null;
 
@@ -98,8 +98,13 @@ function fieldToSchemaEntry(
     entry.autoNumberFormat = field.autoNumberFormat;
   }
   if (config.supportsGlobalChoice && field.globalChoiceId) {
-    const name = globalChoiceNameById?.get(field.globalChoiceId);
-    if (name) entry.globalChoiceName = name;
+    const choice = globalChoices.find((c) => c.id === field.globalChoiceId);
+    if (choice) {
+      entry.globalChoiceName = choice.schemaName || toPascalToken(choice.displayName);
+      if (choice.options.length) {
+        entry.options = choice.options.map((o) => ({ label: o.label, value: o.value }));
+      }
+    }
   }
 
   return entry;
@@ -109,11 +114,8 @@ export function exportColumnSchema(
   table: EntityDraft,
   globalChoices: GlobalChoiceDraft[] = [],
 ): ColumnSchemaDocument {
-  const globalChoiceNameById = new Map(
-    globalChoices.map((c) => [c.id, c.schemaName || toPascalToken(c.displayName)] as const),
-  );
   const columns = table.fields
-    .map((f) => fieldToSchemaEntry(f, globalChoiceNameById))
+    .map((f) => fieldToSchemaEntry(f, globalChoices))
     .filter((entry): entry is ColumnSchemaEntry => entry !== null);
 
   return {
@@ -192,6 +194,17 @@ export function buildSampleColumnSchema(): ColumnSchemaDocument {
           { label: 'Draft', value: 1 },
           { label: 'Submitted', value: 2 },
           { label: 'Approved', value: 3 },
+        ],
+      },
+      {
+        type: 'globalChoice',
+        displayName: 'Body Style',
+        schemaName: 'BodyStyle',
+        globalChoiceName: 'BodyStyle',
+        options: [
+          { label: 'Sedan', value: 1 },
+          { label: 'SUV', value: 2 },
+          { label: 'Truck', value: 3 },
         ],
       },
       {
@@ -319,10 +332,8 @@ function validateColumnEntry(
 
   if (fieldType === 'globalChoice') {
     const name = raw.globalChoiceName;
-    if (typeof name !== 'string' || name.trim().length === 0) {
-      errors.push(
-        `${label}: global choice columns require a globalChoiceName that matches a defined global choice.`,
-      );
+    if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
+      errors.push(`${label}: globalChoiceName must be a non-empty string when provided.`);
     }
   }
 
@@ -382,6 +393,8 @@ function validateColumnEntry(
   }
   if (typeof raw.globalChoiceName === 'string' && raw.globalChoiceName.trim()) {
     entry.globalChoiceName = sanitizeSchemaToken(raw.globalChoiceName);
+  } else if (fieldType === 'globalChoice') {
+    entry.globalChoiceName = entry.schemaName || toPascalToken(entry.displayName) || undefined;
   }
   if (Array.isArray(raw.options)) {
     entry.options = raw.options.map((opt) => ({
@@ -530,8 +543,8 @@ export function schemaEntryToFieldDraft(entry: ColumnSchemaEntry): FieldDraft {
   if (config.supportsAutoNumber) {
     field.autoNumberFormat = entry.autoNumberFormat ?? config.defaultAutoNumberFormat;
   }
-  // Note: globalChoiceId is resolved from entry.globalChoiceName by the store,
-  // which has access to the project's global choices.
+  // globalChoiceId is resolved (and the global choice draft created if needed)
+  // from entry.globalChoiceName by the store.
 
   return field;
 }

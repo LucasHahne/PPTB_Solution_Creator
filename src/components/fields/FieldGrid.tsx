@@ -190,14 +190,14 @@ export function FieldGrid({
   });
 
   return (
-    <table className="w-full border-collapse text-sm">
+    <table className="w-full border-separate border-spacing-0 text-sm">
       <thead>
         {reactTable.getHeaderGroups().map((headerGroup) => (
-          <tr key={headerGroup.id} className="border-b border-slate-200 dark:border-slate-700">
+          <tr key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                className="sticky top-0 z-10 border-b border-slate-200 bg-white px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
               >
                 {flexRender(header.column.columnDef.header, header.getContext())}
               </th>
@@ -207,12 +207,12 @@ export function FieldGrid({
       </thead>
       <tbody>
         {reactTable.getRowModel().rows.map((row) => (
-          <tr
-            key={row.id}
-            className="border-b border-slate-100 align-top dark:border-slate-800"
-          >
+          <tr key={row.id} className="align-top">
             {row.getVisibleCells().map((cell) => (
-              <td key={cell.id} className="px-2 py-1.5">
+              <td
+                key={cell.id}
+                className="border-b border-slate-100 px-2 py-1.5 dark:border-slate-800"
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </td>
             ))}
