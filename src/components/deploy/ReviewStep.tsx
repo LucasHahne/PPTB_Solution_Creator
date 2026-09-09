@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge';
 import { hasBlockingIssues, validateProject } from '../../services/validationService';
 import { ensureProjectGlobalChoices } from '../../utils/globalChoiceEnsure';
 import { useDeployment } from '../../hooks/useDeployment';
+import { useGlobalChoicesCatalog } from '../../hooks/useGlobalChoicesCatalog';
 
 export function ReviewStep({
   onBack,
@@ -22,6 +23,8 @@ export function ReviewStep({
   const reset = useProjectStore((s) => s.reset);
   const setStep = useProjectStore((s) => s.setStep);
   const { status, logs, run } = useDeployment();
+  const { names: existingGlobalChoiceNames } =
+    useGlobalChoicesCatalog(hasConnection);
 
   useEffect(() => {
     const next = ensureProjectGlobalChoices(project);
@@ -30,7 +33,7 @@ export function ReviewStep({
     }
   }, [project]);
 
-  const issues = validateProject(project);
+  const issues = validateProject(project, existingGlobalChoiceNames);
   const blocking = hasBlockingIssues(issues);
   const canDeploy = hasConnection && !blocking;
 

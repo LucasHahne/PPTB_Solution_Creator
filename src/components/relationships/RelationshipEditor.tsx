@@ -9,6 +9,7 @@ import { COMMON_LOOKUP_TARGETS } from "../../constants/defaults";
 import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { Combobox, type ComboboxOption } from "../ui/Combobox";
 import { Checkbox } from "../ui/Checkbox";
 import { Button } from "../ui/Button";
 import {
@@ -31,7 +32,7 @@ export function RelationshipEditor({
   const tables = useProjectStore((s) => s.project.tables);
   const addRelationship = useProjectStore((s) => s.addRelationship);
   const updateRelationship = useProjectStore((s) => s.updateRelationship);
-  const { entities } = useEntitiesCatalog(open);
+  const { entities, isLoading, error } = useEntitiesCatalog(open);
 
   const [draft, setDraft] = useState<LookupRelationshipDraft>(() =>
     blankDraft(tables[0]?.id),
@@ -45,18 +46,33 @@ export function RelationshipEditor({
     }
   }, [open, editing, tables]);
 
-  // Parent options: project tables + common standard tables + any catalog match.
-  const parentOptions = useMemo(() => {
-    const projectOpts = tables.map((t) => ({
+  // Parent options: project tables, then common standard tables, then the rest
+  // of the environment catalog. Commons are deduped against the catalog.
+  const parentOptions = useMemo<ComboboxOption[]>(() => {
+    const projectOpts: ComboboxOption[] = tables.map((t) => ({
       key: `proj:${t.id}`,
       label: `${t.displayName || "Untitled"} (new)`,
+      group: "Project tables",
     }));
-    const standardOpts = COMMON_LOOKUP_TARGETS.map((t) => ({
+    const commonLogicalNames = new Set(
+      COMMON_LOOKUP_TARGETS.map((t) => t.logicalName),
+    );
+    const commonOpts: ComboboxOption[] = COMMON_LOOKUP_TARGETS.map((t) => ({
       key: `${STANDARD_PREFIX}${t.logicalName}`,
-      label: `${t.label} (${t.logicalName})`,
+      label: t.label,
+      sublabel: t.logicalName,
+      group: "Common tables",
     }));
-    return [...projectOpts, ...standardOpts];
-  }, [tables]);
+    const catalogOpts: ComboboxOption[] = entities
+      .filter((e) => !commonLogicalNames.has(e.logicalName))
+      .map((e) => ({
+        key: `${STANDARD_PREFIX}${e.logicalName}`,
+        label: e.displayName,
+        sublabel: e.logicalName,
+        group: "Environment tables",
+      }));
+    return [...projectOpts, ...commonOpts, ...catalogOpts];
+  }, [tables, entities]);
 
   function parentKey(ref: ParentTableRef): string {
     return ref.kind === "project"
@@ -95,9 +111,6 @@ export function RelationshipEditor({
     sanitizeSchemaToken(draft.lookupSchemaName) !== "" &&
     Boolean(draft.childTableId);
 
-  // Surface catalog count subtly so users know standard targets beyond the common list exist.
-  const extraTargets = entities.length;
-
   // Placeholder for the lookup display name: the selected child table's name,
   // trimmed and with all whitespace removed. Falls back to "Lookup".
   const childTable = tables.find((t) => t.id === draft.childTableId);
@@ -122,20 +135,21 @@ export function RelationshipEditor({
     >
       <div className="space-y-4">
         <Field label='Parent table (the "one" side)'>
-          <Select
+          <Combobox
             value={parentKey(draft.parent)}
-            onChange={(e) => setParentFromKey(e.target.value)}
-          >
-            {parentOptions.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-          {extraTargets > 0 && (
+            options={parentOptions}
+            onChange={setParentFromKey}
+            placeholder="Select a table…"
+          />
+          {isLoading && (
             <p className="mt-1 text-xs text-slate-400">
-              {extraTargets} tables available in this environment as lookup
-              targets.
+              Loading environment tables…
+            </p>
+          )}
+          {error && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              Could not load environment tables; project and common tables are
+              still available.
             </p>
           )}
         </Field>

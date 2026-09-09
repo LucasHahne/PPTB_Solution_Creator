@@ -84,10 +84,30 @@ function validateSolution(project: SolutionProject, issues: ValidationIssue[]) {
   }
 }
 
-function validateGlobalChoices(project: SolutionProject, issues: ValidationIssue[]) {
+function validateGlobalChoices(
+  project: SolutionProject,
+  issues: ValidationIssue[],
+  existingGlobalChoiceNames?: Set<string>,
+) {
   const seen = new Set<string>();
+  const prefix = getProjectPrefix(project);
   for (const choice of project.globalChoices ?? []) {
     const label = choice.displayName || '(unnamed global choice)';
+
+    // A name already taken in the environment cannot be created a second time;
+    // deploy binds to the existing option set instead. Not blocking, but the
+    // locally defined options will not be applied.
+    if (prefix && existingGlobalChoiceNames?.size) {
+      const token = sanitizeSchemaToken(choice.schemaName);
+      const name = token ? `${prefix.toLowerCase()}_${token}`.toLowerCase() : '';
+      if (name && existingGlobalChoiceNames.has(name)) {
+        issues.push({
+          step: 'fields',
+          severity: 'warning',
+          message: `Global choice "${label}" already exists in this environment as "${name}" and will be reused; its existing options are kept.`,
+        });
+      }
+    }
     if (!choice.displayName.trim()) {
       issues.push({ step: 'fields', severity: 'error', message: 'A global choice is missing a display name.' });
     }
@@ -188,8 +208,15 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[], globalCho
   }
 }
 
-/** Run all validation rules across the project. */
-export function validateProject(project: SolutionProject): ValidationIssue[] {
+/**
+ * Run all validation rules across the project. Pass the lowercased names of the
+ * global option sets already in the environment to also flag the ones that will
+ * be reused instead of created.
+ */
+export function validateProject(
+  project: SolutionProject,
+  existingGlobalChoiceNames?: Set<string>,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   validateSolution(project, issues);
@@ -198,7 +225,7 @@ export function validateProject(project: SolutionProject): ValidationIssue[] {
     issues.push({ step: 'tables', severity: 'error', message: 'Add at least one table.' });
   }
 
-  validateGlobalChoices(project, issues);
+  validateGlobalChoices(project, issues, existingGlobalChoiceNames);
   const globalChoiceIds = new Set((project.globalChoices ?? []).map((c) => c.id));
 
   const tableTokens = new Set<string>();

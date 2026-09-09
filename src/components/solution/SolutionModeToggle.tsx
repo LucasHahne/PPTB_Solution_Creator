@@ -28,7 +28,14 @@ export function SolutionModeToggle({
                 : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
             )}
           >
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{m.label}</p>
+            <p
+              className={cn(
+                'text-sm font-semibold text-slate-800 dark:text-slate-100',
+                active && 'dark:text-brand-100',
+              )}
+            >
+              {m.label}
+            </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{m.hint}</p>
           </button>
         );

@@ -8,6 +8,7 @@ import {
   createGlobalOptionSet,
   createOneToMany,
   createTable,
+  findAttributeMetadataId,
   findEntityMetadataId,
   findGlobalOptionSetMetadataId,
   findRelationshipMetadataId,
@@ -99,7 +100,7 @@ export async function deployProject(
       const name = globalChoiceName(prefix, choice);
       let metadataId = await findGlobalOptionSetMetadataId(name);
       if (metadataId) {
-        log('info', `Global choice "${choice.displayName}" already exists — reusing it.`);
+        log('info', `Global choice "${choice.displayName}" already exists as "${name}" — reusing it with its existing options.`);
       } else {
         const definition = buildGlobalOptionSet(prefix, choice);
         assertCloneable(`global choice "${choice.displayName}"`, definition);
@@ -166,15 +167,28 @@ export async function deployProject(
       }
       const definition = buildOneToManyRelationship(prefix, rel, resolved);
       const relationshipSchemaName = String(definition.SchemaName ?? '');
+      const lookupColumnLogicalName = buildLogicalName(prefix, rel.lookupSchemaName);
       if (relationshipSchemaName) {
         const existingRel = await findRelationshipMetadataId(
           resolved.parentLogicalName,
           relationshipSchemaName,
+          resolved.childLogicalName,
         );
         if (existingRel) {
           log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
           continue;
         }
+      }
+      // Even if the relationship wasn't found by SchemaName, the lookup column on
+      // the child is a reliable signal that a prior (unacknowledged) create
+      // succeeded. Skip rather than retry into a NavigationPropertyName clash.
+      const existingColumn = await findAttributeMetadataId(
+        resolved.childLogicalName,
+        lookupColumnLogicalName,
+      );
+      if (existingColumn) {
+        log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+        continue;
       }
       assertCloneable(`lookup "${rel.lookupDisplayName}"`, definition);
       await createOneToMany(
@@ -182,6 +196,7 @@ export async function deployProject(
         solutionUniqueName,
         resolved.parentLogicalName,
         relationshipSchemaName || undefined,
+        resolved.childLogicalName,
       );
       result.createdRelationships += 1;
       log('success', `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`);
