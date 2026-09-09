@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { LookupRelationshipDraft, ParentTableRef } from '../../types/relationship';
-import { useProjectStore } from '../../store/projectStore';
-import { useEntitiesCatalog } from '../../hooks/useEntitiesCatalog';
-import { COMMON_LOOKUP_TARGETS } from '../../constants/defaults';
-import { Modal } from '../ui/Modal';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import { Checkbox } from '../ui/Checkbox';
-import { Button } from '../ui/Button';
-import { sanitizeSchemaToken, toPascalToken } from '../../services/namingService';
-import { newId } from '../../utils/ids';
+import { useEffect, useMemo, useState } from "react";
+import type {
+  LookupRelationshipDraft,
+  ParentTableRef,
+} from "../../types/relationship";
+import { useProjectStore } from "../../store/projectStore";
+import { useEntitiesCatalog } from "../../hooks/useEntitiesCatalog";
+import { COMMON_LOOKUP_TARGETS } from "../../constants/defaults";
+import { Modal } from "../ui/Modal";
+import { Input } from "../ui/Input";
+import { Select } from "../ui/Select";
+import { Checkbox } from "../ui/Checkbox";
+import { Button } from "../ui/Button";
+import {
+  sanitizeSchemaToken,
+  toPascalToken,
+} from "../../services/namingService";
+import { newId } from "../../utils/ids";
 
-const STANDARD_PREFIX = 'std:';
+const STANDARD_PREFIX = "std:";
 
 export function RelationshipEditor({
   open,
@@ -27,7 +33,9 @@ export function RelationshipEditor({
   const updateRelationship = useProjectStore((s) => s.updateRelationship);
   const { entities } = useEntitiesCatalog(open);
 
-  const [draft, setDraft] = useState<LookupRelationshipDraft>(() => blankDraft(tables[0]?.id));
+  const [draft, setDraft] = useState<LookupRelationshipDraft>(() =>
+    blankDraft(tables[0]?.id),
+  );
   const [schemaTouched, setSchemaTouched] = useState(false);
 
   useEffect(() => {
@@ -41,7 +49,7 @@ export function RelationshipEditor({
   const parentOptions = useMemo(() => {
     const projectOpts = tables.map((t) => ({
       key: `proj:${t.id}`,
-      label: `${t.displayName || 'Untitled'} (new)`,
+      label: `${t.displayName || "Untitled"} (new)`,
     }));
     const standardOpts = COMMON_LOOKUP_TARGETS.map((t) => ({
       key: `${STANDARD_PREFIX}${t.logicalName}`,
@@ -51,14 +59,25 @@ export function RelationshipEditor({
   }, [tables]);
 
   function parentKey(ref: ParentTableRef): string {
-    return ref.kind === 'project' ? `proj:${ref.tableId}` : `${STANDARD_PREFIX}${ref.logicalName}`;
+    return ref.kind === "project"
+      ? `proj:${ref.tableId}`
+      : `${STANDARD_PREFIX}${ref.logicalName}`;
   }
 
   function setParentFromKey(key: string) {
-    if (key.startsWith('proj:')) {
-      setDraft((d) => ({ ...d, parent: { kind: 'project', tableId: key.slice(5) } }));
+    if (key.startsWith("proj:")) {
+      setDraft((d) => ({
+        ...d,
+        parent: { kind: "project", tableId: key.slice(5) },
+      }));
     } else if (key.startsWith(STANDARD_PREFIX)) {
-      setDraft((d) => ({ ...d, parent: { kind: 'standard', logicalName: key.slice(STANDARD_PREFIX.length) } }));
+      setDraft((d) => ({
+        ...d,
+        parent: {
+          kind: "standard",
+          logicalName: key.slice(STANDARD_PREFIX.length),
+        },
+      }));
     }
   }
 
@@ -72,17 +91,23 @@ export function RelationshipEditor({
   }
 
   const valid =
-    draft.lookupDisplayName.trim() !== '' &&
-    sanitizeSchemaToken(draft.lookupSchemaName) !== '' &&
+    draft.lookupDisplayName.trim() !== "" &&
+    sanitizeSchemaToken(draft.lookupSchemaName) !== "" &&
     Boolean(draft.childTableId);
 
   // Surface catalog count subtly so users know standard targets beyond the common list exist.
   const extraTargets = entities.length;
 
+  // Placeholder for the lookup display name: the selected child table's name,
+  // trimmed and with all whitespace removed. Falls back to "Lookup".
+  const childTable = tables.find((t) => t.id === draft.childTableId);
+  const lookupPlaceholder =
+    "Lookup" + childTable?.displayName.trim().replace(/\s+/g, "") || "Lookup";
+
   return (
     <Modal
       open={open}
-      title={editing ? 'Edit lookup' : 'Add lookup (1:N)'}
+      title={editing ? "Edit lookup" : "Add lookup (1:N)"}
       onClose={onClose}
       footer={
         <>
@@ -90,14 +115,17 @@ export function RelationshipEditor({
             Cancel
           </Button>
           <Button onClick={save} disabled={!valid}>
-            {editing ? 'Save' : 'Add lookup'}
+            {editing ? "Save" : "Add lookup"}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Parent table (the &quot;one&quot; side)">
-          <Select value={parentKey(draft.parent)} onChange={(e) => setParentFromKey(e.target.value)}>
+        <Field label='Parent table (the "one" side)'>
+          <Select
+            value={parentKey(draft.parent)}
+            onChange={(e) => setParentFromKey(e.target.value)}
+          >
             {parentOptions.map((o) => (
               <option key={o.key} value={o.key}>
                 {o.label}
@@ -106,20 +134,23 @@ export function RelationshipEditor({
           </Select>
           {extraTargets > 0 && (
             <p className="mt-1 text-xs text-slate-400">
-              {extraTargets} tables available in this environment as lookup targets.
+              {extraTargets} tables available in this environment as lookup
+              targets.
             </p>
           )}
         </Field>
 
-        <Field label="Child table (the &quot;many&quot; side — gets the lookup column)">
+        <Field label='Child table (the "many" side — gets the lookup column)'>
           <Select
             value={draft.childTableId}
-            onChange={(e) => setDraft((d) => ({ ...d, childTableId: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, childTableId: e.target.value }))
+            }
           >
             <option value="">Select a table…</option>
             {tables.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.displayName || 'Untitled table'}
+                {t.displayName || "Untitled table"}
               </option>
             ))}
           </Select>
@@ -128,13 +159,15 @@ export function RelationshipEditor({
         <Field label="Lookup column display name">
           <Input
             value={draft.lookupDisplayName}
-            placeholder="Parent"
+            placeholder={lookupPlaceholder}
             onChange={(e) => {
               const lookupDisplayName = e.target.value;
               setDraft((d) => ({
                 ...d,
                 lookupDisplayName,
-                lookupSchemaName: schemaTouched ? d.lookupSchemaName : toPascalToken(lookupDisplayName),
+                lookupSchemaName: schemaTouched
+                  ? d.lookupSchemaName
+                  : toPascalToken(lookupDisplayName),
               }));
             }}
           />
@@ -143,10 +176,13 @@ export function RelationshipEditor({
         <Field label="Lookup schema name">
           <Input
             value={draft.lookupSchemaName}
-            placeholder="Parent"
+            placeholder={lookupPlaceholder}
             onChange={(e) => {
               setSchemaTouched(true);
-              setDraft((d) => ({ ...d, lookupSchemaName: sanitizeSchemaToken(e.target.value) }));
+              setDraft((d) => ({
+                ...d,
+                lookupSchemaName: sanitizeSchemaToken(e.target.value),
+              }));
             }}
           />
         </Field>
@@ -156,7 +192,11 @@ export function RelationshipEditor({
             <Select
               value={draft.cascadeDelete}
               onChange={(e) =>
-                setDraft((d) => ({ ...d, cascadeDelete: e.target.value as LookupRelationshipDraft['cascadeDelete'] }))
+                setDraft((d) => ({
+                  ...d,
+                  cascadeDelete: e.target
+                    .value as LookupRelationshipDraft["cascadeDelete"],
+                }))
               }
             >
               <option value="RemoveLink">Remove link</option>
@@ -168,7 +208,9 @@ export function RelationshipEditor({
             <Checkbox
               label="Required"
               checked={draft.required}
-              onChange={(e) => setDraft((d) => ({ ...d, required: e.target.checked }))}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, required: e.target.checked }))
+              }
             />
           </div>
         </div>
@@ -180,18 +222,24 @@ export function RelationshipEditor({
 function blankDraft(firstTableId?: string): LookupRelationshipDraft {
   return {
     id: newId(),
-    childTableId: firstTableId ?? '',
+    childTableId: firstTableId ?? "",
     parent: firstTableId
-      ? { kind: 'project', tableId: firstTableId }
-      : { kind: 'standard', logicalName: 'account' },
-    lookupDisplayName: '',
-    lookupSchemaName: '',
-    cascadeDelete: 'RemoveLink',
+      ? { kind: "project", tableId: firstTableId }
+      : { kind: "standard", logicalName: "account" },
+    lookupDisplayName: "",
+    lookupSchemaName: "",
+    cascadeDelete: "RemoveLink",
     required: false,
   };
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">

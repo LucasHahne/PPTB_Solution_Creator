@@ -172,7 +172,11 @@ function validateTable(entity: EntityDraft, issues: ValidationIssue[], globalCho
 
     if (config.supportsGlobalChoice) {
       if (!field.globalChoiceId || !globalChoiceIds.has(field.globalChoiceId)) {
-        issues.push({ step: 'fields', severity: 'error', message: `Global choice column "${fieldLabel}" must reference an existing global choice.` });
+        issues.push({
+          step: 'fields',
+          severity: 'error',
+          message: `Global choice column "${fieldLabel}" needs a name so a global choice can be created on deploy and bound to the column.`,
+        });
       }
     }
 

@@ -180,8 +180,8 @@ export function FieldConfigPanel({
             label="Global choice"
             hint={
               globalChoices.length === 0
-                ? 'No global choices yet — create one from "Manage global choices".'
-                : undefined
+                ? 'No global choices yet — one will be created from this column and bound on deploy. You can also add one from "Manage global choices".'
+                : 'If this choice does not already exist in the environment, it is created during deploy and then bound to the column.'
             }
           >
             <Select

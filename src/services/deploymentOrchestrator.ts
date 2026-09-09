@@ -19,6 +19,7 @@ import { createSolution, findSolutionByUniqueName } from './solutionService';
 import { resolveRelationship, tableLogicalName } from './projectResolver';
 import { buildLogicalName } from './namingService';
 import { getProjectPrefix } from './validationService';
+import { ensureProjectGlobalChoices } from '../utils/globalChoiceEnsure';
 import { toErrorMessage } from '../utils/errors';
 
 export type DeploymentLogger = (level: LogLevel, message: string) => void;
@@ -58,7 +59,7 @@ export interface DeploymentResult {
  * result. There is no automatic rollback (Dataverse does not support it here).
  */
 export async function deployProject(
-  project: SolutionProject,
+  incoming: SolutionProject,
   log: DeploymentLogger,
 ): Promise<DeploymentResult> {
   const result: DeploymentResult = {
@@ -68,6 +69,10 @@ export async function deployProject(
     createdRelationships: 0,
     createdGlobalChoices: 0,
   };
+
+  // Create any missing global-choice drafts and bind columns to them so deploy
+  // can create the option set first, then reference it from the column.
+  const project = ensureProjectGlobalChoices(incoming);
 
   const prefix = getProjectPrefix(project);
   if (!prefix) {
@@ -137,7 +142,7 @@ export async function deployProject(
           continue;
         }
         if (field.type === 'globalChoice' && !field.globalChoiceId) {
-          log('warning', `Skipped column "${field.displayName}" — no global choice selected.`);
+          log('warning', `Skipped column "${field.displayName}" — could not create or bind a global choice.`);
           continue;
         }
         const globalOptionSetBind = field.globalChoiceId

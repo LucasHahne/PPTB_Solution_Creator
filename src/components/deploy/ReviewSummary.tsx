@@ -81,6 +81,10 @@ export function ReviewSummary() {
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Global choices ({project.globalChoices.length})
           </h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Created in Dataverse during deploy (reused if the name already exists), then bound to
+            Choice (global) columns.
+          </p>
           <ul className="mt-2 space-y-1.5">
             {project.globalChoices.map((choice) => (
               <li key={choice.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
