@@ -4,7 +4,7 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/LucasHahne/PPTB_Solution_Creator/blob/main/LICENSE)
 [![Power Platform ToolBox](https://img.shields.io/badge/Power%20Platform-ToolBox-327dfb.svg)](https://docs.powerplatformtoolbox.com/tool-development)
 
-A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N lookups, review, and deploy — all from a single guided workflow.
+A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N and M:N relationships, review, and deploy — all from a single guided workflow.
 
 Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/package/@lucas001-yt/pptb-solution-creator)
 
@@ -28,7 +28,9 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 - **Autonumber columns** — configure the format (e.g. `INV-{SEQNUM:5}`) and maximum length.
 
-- **1:N lookups** — relate tables with cascade configuration; pick the parent from your project tables, the common standard tables, or any searchable table in the connected environment.
+- **1:N lookups** — relate tables with cascade configuration; pick the parent from your project tables, the common standard tables, or any searchable table in the connected environment. Defaults use the parent display name and schema `Lookup{Parent}` (editable).
+
+- **M:N relationships** — many-to-many via an explicit bridge table with an autonumber primary column and two lookups. Defaults: display `Bridge {Left} {Right}`, schema `Bridge{Left}{Right}`, lookups `Lookup{Left}` / `Lookup{Right}` (all editable). Deploy creates the bridge then the lookups and shares the final publish.
 
 - **Review & deploy** — validation summary, ordered deployment, a live progress log, and a single publish at the end.
 
@@ -42,11 +44,9 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 
 3. **Fields** — define columns per table, or bulk-import from a validated JSON schema.
 
-4. **Lookups** — add 1:N relationships.
+4. **Lookups** — add 1:N lookups and/or M:N bridge relationships.
 
 5. **Review & Deploy** — confirm and push to Dataverse.
-
-> Many-to-many relationships are out of scope; Dataverse requires a bridge table for those.
 
 ## Requirements
 
