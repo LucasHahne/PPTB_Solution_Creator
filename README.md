@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@lucas001-yt/pptb-solution-creator.svg?color=blue)](https://www.npmjs.com/package/@lucas001-yt/pptb-solution-creator)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/LucasHahne/PPTB_Solution_Creator/blob/main/LICENSE)
-[![Power Platform ToolBox](https://img.shields.io/badge/Power%20Platform-ToolBox-327dfb.svg)](https://docs.powerplatformtoolbox.com/tool-development)
+[![Power Platform ToolBox](https://img.shields.io/badge/Power%20Platform-ToolBox-327dfb.svg)](https://www.powerplatformtoolbox.com/tools/d710c469-5599-440b-ad60-e321af3a22ac)
 
 A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N and M:N relationships, review, and deploy — all from a single guided workflow.
 
