@@ -259,6 +259,45 @@ export function validateProject(
     }
   }
 
+  for (const mn of project.manyToManyRelationships ?? []) {
+    const label = mn.bridgeDisplayName.trim() || 'unnamed M:N';
+    if (!mn.bridgeDisplayName.trim()) {
+      issues.push({ step: 'relationships', severity: 'error', message: 'An M:N relationship is missing a bridge display name.' });
+    }
+    if (!sanitizeSchemaToken(mn.bridgeSchemaName)) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" has an invalid bridge schema name.` });
+    }
+    if (!sanitizeSchemaToken(mn.primarySchemaName)) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" has an invalid primary schema name.` });
+    }
+    if (!mn.autoNumberFormat.trim()) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" is missing an autonumber format.` });
+    }
+    if (!mn.leftTableId || !tableIds.has(mn.leftTableId)) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" is missing a valid left table.` });
+    }
+    if (!mn.rightTableId || !tableIds.has(mn.rightTableId)) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" is missing a valid right table.` });
+    }
+    if (mn.leftTableId && mn.rightTableId && mn.leftTableId === mn.rightTableId) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" must relate two different tables.` });
+    }
+    if (!sanitizeSchemaToken(mn.leftLookupSchemaName) || !sanitizeSchemaToken(mn.rightLookupSchemaName)) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" has an invalid lookup schema name.` });
+    }
+    if (!mn.leftLookupDisplayName.trim() || !mn.rightLookupDisplayName.trim()) {
+      issues.push({ step: 'relationships', severity: 'error', message: `M:N "${label}" is missing a lookup display name.` });
+    }
+    const bridgeToken = sanitizeSchemaToken(mn.bridgeSchemaName).toLowerCase();
+    if (bridgeToken && tableTokens.has(bridgeToken)) {
+      issues.push({
+        step: 'relationships',
+        severity: 'error',
+        message: `M:N bridge schema "${bridgeToken}" collides with a project table schema name.`,
+      });
+    }
+  }
+
   return issues;
 }
 

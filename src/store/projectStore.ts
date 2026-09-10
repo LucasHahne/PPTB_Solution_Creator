@@ -3,7 +3,7 @@ import type { SolutionProject, WizardStep } from '../types/project';
 import type { EntityDraft } from '../types/entity';
 import type { FieldDraft, FieldType } from '../types/field';
 import type { GlobalChoiceDraft } from '../types/globalChoice';
-import type { LookupRelationshipDraft } from '../types/relationship';
+import type { LookupRelationshipDraft, ManyToManyRelationshipDraft } from '../types/relationship';
 import type { NewSolutionDraft, SolutionSummary } from '../types/solution';
 import type { ColumnSchemaEntry } from '../types/columnSchema';
 import {
@@ -29,6 +29,7 @@ function emptyProject(): SolutionProject {
     },
     tables: [],
     relationships: [],
+    manyToManyRelationships: [],
     globalChoices: [],
   };
 }
@@ -38,6 +39,7 @@ function normalizeProject(project: SolutionProject): SolutionProject {
   return {
     ...project,
     relationships: project.relationships ?? [],
+    manyToManyRelationships: project.manyToManyRelationships ?? [],
     globalChoices: project.globalChoices ?? [],
   };
 }
@@ -141,6 +143,11 @@ interface ProjectState {
   addRelationship: (rel: LookupRelationshipDraft) => void;
   updateRelationship: (id: string, patch: Partial<LookupRelationshipDraft>) => void;
   removeRelationship: (id: string) => void;
+
+  // M:N (bridge) relationships
+  addManyToMany: (rel: ManyToManyRelationshipDraft) => void;
+  updateManyToMany: (id: string, patch: Partial<ManyToManyRelationshipDraft>) => void;
+  removeManyToMany: (id: string) => void;
 
   // Global choices
   addGlobalChoice: (choice?: GlobalChoiceDraft) => string;
@@ -250,6 +257,9 @@ export const useProjectStore = create<ProjectState>((set) => ({
           tables,
           relationships: state.project.relationships.filter(
             (r) => r.childTableId !== id && !(r.parent.kind === 'project' && r.parent.tableId === id),
+          ),
+          manyToManyRelationships: state.project.manyToManyRelationships.filter(
+            (r) => r.leftTableId !== id && r.rightTableId !== id,
           ),
         },
         selectedTableId:
@@ -450,6 +460,32 @@ export const useProjectStore = create<ProjectState>((set) => ({
       project: {
         ...state.project,
         relationships: state.project.relationships.filter((r) => r.id !== id),
+      },
+    })),
+
+  addManyToMany: (rel) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        manyToManyRelationships: [...state.project.manyToManyRelationships, rel],
+      },
+    })),
+
+  updateManyToMany: (id, patch) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        manyToManyRelationships: state.project.manyToManyRelationships.map((r) =>
+          r.id === id ? { ...r, ...patch } : r,
+        ),
+      },
+    })),
+
+  removeManyToMany: (id) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        manyToManyRelationships: state.project.manyToManyRelationships.filter((r) => r.id !== id),
       },
     })),
 

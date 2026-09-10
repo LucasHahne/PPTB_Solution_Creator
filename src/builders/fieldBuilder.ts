@@ -147,18 +147,29 @@ export function buildAttributeDefinition(
   return base;
 }
 
-/** Build the primary-name string attribute embedded in a new table definition. */
+/** Build the primary-name attribute embedded in a new table definition. */
 export function buildPrimaryNameAttribute(
   prefix: string,
   field: FieldDraft,
 ): Record<string, unknown> {
-  return {
+  const schemaName = buildSchemaName(prefix, field.schemaName);
+  const base: Record<string, unknown> = {
     '@odata.type': odataType('String'),
-    SchemaName: buildSchemaName(prefix, field.schemaName),
+    SchemaName: schemaName,
     DisplayName: makeLabel(field.displayName),
     RequiredLevel: { Value: 'ApplicationRequired' },
     MaxLength: field.maxLength ?? 100,
-    FormatName: { Value: 'Text' },
     IsPrimaryName: true,
   };
+
+  if (field.type === 'autonumber') {
+    const config = FIELD_TYPE_CONFIGS.autonumber;
+    base.FormatName = { Value: config.formatName ?? 'Text' };
+    base.AutoNumberFormat =
+      field.autoNumberFormat ?? config.defaultAutoNumberFormat ?? 'BRG-{SEQNUM:5}';
+    return base;
+  }
+
+  base.FormatName = { Value: 'Text' };
+  return base;
 }

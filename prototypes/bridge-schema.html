@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bridge table naming conventions</title>
+    <link rel="stylesheet" href="theme.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .wrap { max-width: 820px; margin: 0 auto; padding: var(--space-6) var(--space-4); }
+      h1 { margin: 0 0 var(--space-2); font-size: 22px; }
+      .lede { color: var(--muted); margin: 0 0 var(--space-5); }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow);
+        padding: var(--space-5);
+        margin-bottom: var(--space-4);
+      }
+      .card h2 {
+        margin: 0 0 var(--space-3);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th, td {
+        text-align: left;
+        padding: var(--space-2) var(--space-3);
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      th { color: var(--muted); font-size: 12px; font-weight: 600; }
+      tr:last-child td { border-bottom: none; }
+      .mono {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: var(--code-bg);
+        padding: 1px 6px;
+        border-radius: 4px;
+      }
+      ol { margin: 0; padding-left: 1.25rem; }
+      li { margin-bottom: var(--space-2); }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .nav {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        font-size: 13px;
+      }
+      a { color: var(--accent); }
+      .theme-toggle {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface-raised);
+        color: var(--text);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="nav">
+        <a href="lookups-list.html">← Lookups list</a>
+        <a href="mn-editor.html">M:N editor</a>
+      </div>
+
+      <h1>Bridge table schema &amp; naming</h1>
+      <p class="lede">
+        Conventions for M:N intersect tables in Solution Creator.
+        Defaults are generated from the left and right tables; display and schema stay editable.
+      </p>
+
+      <div class="card">
+        <h2>Naming defaults</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Pattern</th>
+              <th>Example (Student × Course)</th>
+              <th>Editable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Display name</td>
+              <td><span class="mono">Bridge {Left} {Right}</span></td>
+              <td><span class="mono">Bridge Student Course</span></td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Schema name</td>
+              <td><span class="mono">Bridge{Left}{Right}</span></td>
+              <td><span class="mono">BridgeStudentCourse</span></td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Logical name (deploy)</td>
+              <td><span class="mono">{prefix}{Schema}</span></td>
+              <td><span class="mono">new_BridgeStudentCourse</span></td>
+              <td>Prefix from publisher</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Bridge table columns</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Display</th>
+              <th>Schema</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge">Primary</span></td>
+              <td>Bridge Number</td>
+              <td><span class="mono">BridgeNumber</span></td>
+              <td>Autonumber · format <span class="mono">BRG-{SEQNUM:5}</span> (not a Name text column)</td>
+            </tr>
+            <tr>
+              <td>Lookup (left)</td>
+              <td>{Left}</td>
+              <td><span class="mono">Lookup{Left}</span></td>
+              <td>Required lookup to left table (e.g. <span class="mono">LookupStudent</span>)</td>
+            </tr>
+            <tr>
+              <td>Lookup (right)</td>
+              <td>{Right}</td>
+              <td><span class="mono">Lookup{Right}</span></td>
+              <td>Required lookup to right table (e.g. <span class="mono">LookupCourse</span>)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Deploy order (preview)</h2>
+        <ol>
+          <li>Ensure left and right tables exist (project tables created earlier in the run).</li>
+          <li>Create bridge table with autonumber primary.</li>
+          <li>Create left and right lookup columns on the bridge (1:N from each side into the bridge).</li>
+          <li>Publish customizations with the rest of the solution.</li>
+        </ol>
+        <p style="margin:12px 0 0;color:var(--muted);font-size:13px">
+          Native Dataverse N:N relationship metadata may be added later; v1 UX is the explicit bridge-table approach shown here.
+        </p>
+      </div>
+    </div>
+
+    <button type="button" class="theme-toggle" id="themeToggle">Toggle dark</button>
+    <script>
+      document.getElementById('themeToggle').onclick = () =>
+        document.documentElement.classList.toggle('dark');
+    </script>
+  </body>
+</html>

@@ -25,3 +25,24 @@ export interface LookupRelationshipDraft {
   cascadeDelete: CascadeDelete;
   required: boolean;
 }
+
+/**
+ * An M:N relationship modeled as an explicit bridge table with an autonumber
+ * primary column and two lookups (bridge → left, bridge → right).
+ * Both sides are project tables in v1.
+ */
+export interface ManyToManyRelationshipDraft {
+  id: string;
+  leftTableId: string;
+  rightTableId: string;
+  bridgeDisplayName: string;
+  /** Schema name without the publisher prefix. */
+  bridgeSchemaName: string;
+  primaryDisplayName: string;
+  primarySchemaName: string;
+  autoNumberFormat: string;
+  leftLookupDisplayName: string;
+  leftLookupSchemaName: string;
+  rightLookupDisplayName: string;
+  rightLookupSchemaName: string;
+}

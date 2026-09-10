@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M:N relationship editor</title>
+    <link rel="stylesheet" href="theme.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-sans);
+        background: rgba(15, 23, 42, 0.45);
+        color: var(--text);
+        font-size: 14px;
+        display: grid;
+        place-items: center;
+        padding: var(--space-4);
+      }
+      .modal {
+        width: min(720px, 100%);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-4) var(--space-5);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .header h1 { margin: 0; font-size: 16px; }
+      .close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; }
+      .body { padding: var(--space-5); display: grid; gap: var(--space-4); }
+      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+      label { display: grid; gap: var(--space-1); font-size: 12px; color: var(--muted); font-weight: 600; }
+      input, select {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: var(--surface-raised);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        padding: var(--space-2) var(--space-3);
+        font: inherit;
+      }
+      input:focus, select:focus {
+        outline: 2px solid var(--focus-ring);
+        border-color: var(--accent);
+      }
+      .preview {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: var(--space-4);
+      }
+      .preview h2 {
+        margin: 0 0 var(--space-3);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      .schema-row {
+        display: grid;
+        grid-template-columns: 110px 1fr 1fr;
+        gap: var(--space-2);
+        padding: var(--space-2) 0;
+        border-bottom: 1px dashed var(--border);
+        font-size: 13px;
+      }
+      .schema-row:last-child { border-bottom: none; }
+      .schema-row .kind { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+      .mono { font-family: var(--font-mono); font-size: 12px; }
+      .callout {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border-radius: var(--radius-sm);
+        background: var(--warning-soft);
+        color: var(--warning);
+        font-size: 12px;
+      }
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-4) var(--space-5);
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: var(--surface-raised);
+        color: var(--text);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font: inherit;
+        text-decoration: none;
+      }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+      }
+      .theme-toggle { position: fixed; right: 16px; bottom: 16px; }
+      @media (max-width: 640px) {
+        .grid-2, .schema-row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="modal" role="dialog" aria-labelledby="title">
+      <div class="header">
+        <h1 id="title">Add M:N relationship</h1>
+        <a class="close" href="lookups-list.html" aria-label="Close">×</a>
+      </div>
+      <div class="body">
+        <div class="grid-2">
+          <label>
+            Left table
+            <select id="left">
+              <option selected>Student</option>
+              <option>Product</option>
+              <option>Account</option>
+            </select>
+          </label>
+          <label>
+            Right table
+            <select id="right">
+              <option selected>Course</option>
+              <option>Category</option>
+              <option>Contact</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label>
+            Bridge display name
+            <input id="display" type="text" value="Bridge Student Course" />
+          </label>
+          <label>
+            Bridge schema name
+            <input id="schema" type="text" value="BridgeStudentCourse" class="mono" />
+            <span style="font-weight:400;color:var(--faint)">Without publisher prefix · deploy → <span class="mono">new_BridgeStudentCourse</span></span>
+          </label>
+        </div>
+
+        <div class="preview" aria-live="polite">
+          <h2>Bridge table schema preview</h2>
+          <div class="schema-row">
+            <span class="kind">Table</span>
+            <span id="pv-display">Bridge Student Course</span>
+            <span class="mono" id="pv-schema">BridgeStudentCourse</span>
+          </div>
+          <div class="schema-row">
+            <span class="kind">Primary</span>
+            <span>Bridge Number (autonumber)</span>
+            <span class="mono">BridgeNumber · BRG-{SEQNUM:5}</span>
+          </div>
+          <div class="schema-row">
+            <span class="kind">Lookup</span>
+            <span>Student</span>
+            <span class="mono">LookupStudent → Student</span>
+          </div>
+          <div class="schema-row">
+            <span class="kind">Lookup</span>
+            <span>Course</span>
+            <span class="mono">LookupCourse → Course</span>
+          </div>
+          <div class="callout">
+            Defaults: display <strong>Bridge {Left} {Right}</strong>, schema <strong>Bridge{Left}{Right}</strong>.
+            Both fields are editable. Primary column is always autonumber (not Name text).
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <a class="btn" href="bridge-schema.html">Naming conventions →</a>
+        <div style="display:flex;gap:8px">
+          <a class="btn" href="lookups-list.html">Cancel</a>
+          <button type="button" class="btn btn-primary">Save M:N</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn theme-toggle" id="themeToggle">Toggle dark</button>
+    <script>
+      const left = document.getElementById('left');
+      const right = document.getElementById('right');
+      const display = document.getElementById('display');
+      const schema = document.getElementById('schema');
+      let displayTouched = false;
+      let schemaTouched = false;
+
+      function pascal(s) {
+        return s.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).map(
+          (w) => w.charAt(0).toUpperCase() + w.slice(1)
+        ).join('');
+      }
+
+      function applyDefaults() {
+        const L = left.value;
+        const R = right.value;
+        if (!displayTouched) display.value = `Bridge ${L} ${R}`;
+        if (!schemaTouched) schema.value = `Bridge${pascal(L)}${pascal(R)}`;
+        syncPreview();
+      }
+
+      function syncPreview() {
+        document.getElementById('pv-display').textContent = display.value;
+        document.getElementById('pv-schema').textContent = schema.value;
+      }
+
+      left.onchange = right.onchange = applyDefaults;
+      display.oninput = () => { displayTouched = true; syncPreview(); };
+      schema.oninput = () => { schemaTouched = true; syncPreview(); };
+      document.getElementById('themeToggle').onclick = () =>
+        document.documentElement.classList.toggle('dark');
+    </script>
+  </body>
+</html>

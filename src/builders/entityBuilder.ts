@@ -1,4 +1,6 @@
 import type { EntityDraft } from '../types/entity';
+import type { FieldDraft } from '../types/field';
+import type { ManyToManyRelationshipDraft } from '../types/relationship';
 import { buildSchemaName } from '../services/namingService';
 import { buildPrimaryNameAttribute } from './fieldBuilder';
 import { makeLabel } from './labels';
@@ -32,5 +34,30 @@ export function buildEntityDefinition(
     HasActivities: entity.hasActivities,
     HasNotes: entity.hasNotes,
     Attributes: [buildPrimaryNameAttribute(prefix, primary)],
+  };
+}
+
+/** Synthesize a project-style entity draft for an M:N bridge table (deploy only). */
+export function synthesizeBridgeEntity(mn: ManyToManyRelationshipDraft): EntityDraft {
+  const primary: FieldDraft = {
+    id: `${mn.id}-primary`,
+    type: 'autonumber',
+    displayName: mn.primaryDisplayName,
+    schemaName: mn.primarySchemaName,
+    requiredLevel: 'ApplicationRequired',
+    isPrimaryName: true,
+    maxLength: 100,
+    autoNumberFormat: mn.autoNumberFormat,
+  };
+
+  return {
+    id: mn.id,
+    displayName: mn.bridgeDisplayName,
+    pluralName: mn.bridgeDisplayName,
+    schemaName: mn.bridgeSchemaName,
+    ownershipType: 'OrganizationOwned',
+    hasActivities: false,
+    hasNotes: false,
+    fields: [primary],
   };
 }

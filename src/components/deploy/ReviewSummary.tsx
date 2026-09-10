@@ -116,6 +116,28 @@ export function ReviewSummary() {
           </ul>
         </section>
       )}
+
+      {(project.manyToManyRelationships?.length ?? 0) > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            M:N bridges ({project.manyToManyRelationships.length})
+          </h3>
+          <ul className="mt-2 space-y-1.5">
+            {project.manyToManyRelationships.map((mn) => (
+              <li key={mn.id} className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <span className="font-medium">{mn.bridgeDisplayName}</span>
+                <Badge tone="success">M:N</Badge>
+                <Badge tone="brand">{tableName(mn.leftTableId)}</Badge>
+                <span className="text-slate-400">↔</span>
+                <Badge tone="neutral">{tableName(mn.rightTableId)}</Badge>
+                <span className="text-xs text-slate-400">
+                  {prefix}_{mn.bridgeSchemaName}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

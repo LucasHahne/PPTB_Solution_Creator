@@ -1,0 +1,85 @@
+/* Solution Creator theme - durable /prototype output.
+   Port into the app stylesheet when building the first UI feature that needs it.
+   Values mirror the current ToolBox tool: slate surfaces, brand blue accent. */
+
+:root {
+  /* surfaces */
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --surface-raised: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* text */
+  --text: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+
+  /* accent (Tailwind brand-500 / brand-600) */
+  --accent: #327dfb;
+  --accent-hover: #1b5ef0;
+  --accent-soft: #eef6ff;
+  --accent-ink: #ffffff;
+
+  /* status */
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #a16207;
+  --warning-soft: #fef9c3;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
+
+  /* component */
+  --nav-active: var(--accent);
+  --row-hover: #f1f5f9;
+  --focus-ring: rgba(50, 125, 251, 0.35);
+  --code-bg: #f1f5f9;
+
+  /* type */
+  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+
+  /* scale */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+}
+
+html.dark {
+  --bg: #020617;
+  --surface: #0f172a;
+  --surface-raised: #1e293b;
+  --border: #334155;
+  --border-strong: #475569;
+
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --faint: #64748b;
+
+  --accent: #59a1ff;
+  --accent-hover: #8ec3ff;
+  --accent-soft: #0f234f;
+  --accent-ink: #0f172a;
+
+  --success: #4ade80;
+  --success-soft: #14532d;
+  --warning: #facc15;
+  --warning-soft: #713f12;
+  --danger: #f87171;
+  --danger-soft: #7f1d1d;
+  --info: #93c5fd;
+  --info-soft: #1e3a8a;
+
+  --row-hover: #1e293b;
+  --focus-ring: rgba(89, 161, 255, 0.4);
+  --code-bg: #1e293b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
+}

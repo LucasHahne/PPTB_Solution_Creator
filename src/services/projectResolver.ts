@@ -1,6 +1,6 @@
 import type { SolutionProject } from '../types/project';
 import type { EntityDraft } from '../types/entity';
-import type { LookupRelationshipDraft } from '../types/relationship';
+import type { LookupRelationshipDraft, ManyToManyRelationshipDraft } from '../types/relationship';
 import { buildLogicalName } from './namingService';
 import type { ResolvedRelationship } from '../builders/relationshipBuilder';
 
@@ -50,5 +50,75 @@ export function resolveRelationship(
     parentLogicalName,
     parentPrimaryKey: primaryKeyFor(parentLogicalName),
     childLogicalName,
+  };
+}
+
+/** Resolve a project table id to its deployed logical name. */
+export function resolveProjectTableLogicalName(
+  prefix: string,
+  project: SolutionProject,
+  tableId: string,
+): string | null {
+  const table = project.tables.find((t) => t.id === tableId);
+  if (!table) return null;
+  return tableLogicalName(prefix, table);
+}
+
+/**
+ * Resolve the two bridge→side lookups for an M:N draft.
+ * Child is always the bridge table (logical name from bridge schema).
+ */
+export function resolveManyToManyLookups(
+  prefix: string,
+  project: SolutionProject,
+  mn: ManyToManyRelationshipDraft,
+): {
+  bridgeLogicalName: string;
+  left: { rel: LookupRelationshipDraft; resolved: ResolvedRelationship };
+  right: { rel: LookupRelationshipDraft; resolved: ResolvedRelationship };
+} | null {
+  const leftLogical = resolveProjectTableLogicalName(prefix, project, mn.leftTableId);
+  const rightLogical = resolveProjectTableLogicalName(prefix, project, mn.rightTableId);
+  if (!leftLogical || !rightLogical) return null;
+
+  const bridgeLogicalName = buildLogicalName(prefix, mn.bridgeSchemaName);
+
+  const leftRel: LookupRelationshipDraft = {
+    id: `${mn.id}-left`,
+    childTableId: mn.id,
+    parent: { kind: 'project', tableId: mn.leftTableId },
+    lookupDisplayName: mn.leftLookupDisplayName,
+    lookupSchemaName: mn.leftLookupSchemaName,
+    cascadeDelete: 'RemoveLink',
+    required: true,
+  };
+  const rightRel: LookupRelationshipDraft = {
+    id: `${mn.id}-right`,
+    childTableId: mn.id,
+    parent: { kind: 'project', tableId: mn.rightTableId },
+    lookupDisplayName: mn.rightLookupDisplayName,
+    lookupSchemaName: mn.rightLookupSchemaName,
+    cascadeDelete: 'RemoveLink',
+    required: true,
+  };
+
+  return {
+    bridgeLogicalName,
+    left: {
+      rel: leftRel,
+      resolved: {
+        parentLogicalName: leftLogical,
+        parentPrimaryKey: primaryKeyFor(leftLogical),
+        childLogicalName: bridgeLogicalName,
+      },
+    },
+    right: {
+      rel: rightRel,
+      resolved: {
+        parentLogicalName: rightLogical,
+        parentPrimaryKey: primaryKeyFor(rightLogical),
+        childLogicalName: bridgeLogicalName,
+      },
+    },
   };
 }

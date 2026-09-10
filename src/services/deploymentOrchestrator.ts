@@ -1,5 +1,5 @@
 import type { DeploymentStatus, LogLevel, SolutionProject } from '../types/project';
-import { buildEntityDefinition, getPrimaryNameField } from '../builders/entityBuilder';
+import { buildEntityDefinition, getPrimaryNameField, synthesizeBridgeEntity } from '../builders/entityBuilder';
 import { buildAttributeDefinition } from '../builders/fieldBuilder';
 import { buildOneToManyRelationship } from '../builders/relationshipBuilder';
 import { buildGlobalOptionSet, globalChoiceName } from '../builders/globalChoiceBuilder';
@@ -17,11 +17,13 @@ import {
 } from './metadataService';
 import { createPublisher, findPublisher } from './publisherService';
 import { createSolution, findSolutionByUniqueName } from './solutionService';
-import { resolveRelationship, tableLogicalName } from './projectResolver';
+import { resolveManyToManyLookups, resolveRelationship, tableLogicalName } from './projectResolver';
 import { buildLogicalName } from './namingService';
 import { getProjectPrefix } from './validationService';
 import { ensureProjectGlobalChoices } from '../utils/globalChoiceEnsure';
 import { toErrorMessage } from '../utils/errors';
+import type { LookupRelationshipDraft } from '../types/relationship';
+import type { ResolvedRelationship } from '../builders/relationshipBuilder';
 
 export type DeploymentLogger = (level: LogLevel, message: string) => void;
 
@@ -165,41 +167,32 @@ export async function deployProject(
         log('warning', `Skipped lookup "${rel.lookupDisplayName}" — could not resolve its tables.`);
         continue;
       }
-      const definition = buildOneToManyRelationship(prefix, rel, resolved);
-      const relationshipSchemaName = String(definition.SchemaName ?? '');
-      const lookupColumnLogicalName = buildLogicalName(prefix, rel.lookupSchemaName);
-      if (relationshipSchemaName) {
-        const existingRel = await findRelationshipMetadataId(
-          resolved.parentLogicalName,
-          relationshipSchemaName,
-          resolved.childLogicalName,
-        );
-        if (existingRel) {
-          log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
-          continue;
-        }
-      }
-      // Even if the relationship wasn't found by SchemaName, the lookup column on
-      // the child is a reliable signal that a prior (unacknowledged) create
-      // succeeded. Skip rather than retry into a NavigationPropertyName clash.
-      const existingColumn = await findAttributeMetadataId(
-        resolved.childLogicalName,
-        lookupColumnLogicalName,
-      );
-      if (existingColumn) {
-        log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+      await ensureOneToManyLookup(prefix, solutionUniqueName, rel, resolved, log, result);
+    }
+
+    // M:N bridge tables + two lookups onto the bridge.
+    for (const mn of project.manyToManyRelationships ?? []) {
+      const sides = resolveManyToManyLookups(prefix, project, mn);
+      if (!sides) {
+        log('warning', `Skipped M:N "${mn.bridgeDisplayName}" — could not resolve left/right tables.`);
         continue;
       }
-      assertCloneable(`lookup "${rel.lookupDisplayName}"`, definition);
-      await createOneToMany(
-        definition,
-        solutionUniqueName,
-        resolved.parentLogicalName,
-        relationshipSchemaName || undefined,
-        resolved.childLogicalName,
-      );
-      result.createdRelationships += 1;
-      log('success', `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`);
+
+      const bridgeEntity = synthesizeBridgeEntity(mn);
+      const bridgeLogical = sides.bridgeLogicalName;
+      const existingBridge = await findEntityMetadataId(bridgeLogical);
+      if (existingBridge) {
+        log('info', `Bridge table "${mn.bridgeDisplayName}" already exists — reusing it.`);
+      } else {
+        const definition = buildEntityDefinition(prefix, bridgeEntity);
+        assertCloneable(`bridge table "${mn.bridgeDisplayName}"`, definition);
+        await createTable(definition, solutionUniqueName, bridgeLogical);
+        result.createdTables += 1;
+        log('success', `Created bridge table "${mn.bridgeDisplayName}".`);
+      }
+
+      await ensureOneToManyLookup(prefix, solutionUniqueName, sides.left.rel, sides.left.resolved, log, result);
+      await ensureOneToManyLookup(prefix, solutionUniqueName, sides.right.rel, sides.right.resolved, log, result);
     }
 
     // Publish everything once at the end.
@@ -220,6 +213,52 @@ export async function deployProject(
   }
 
   return result;
+}
+
+/** Create a 1:N lookup when missing; skip when relationship or column already exists. */
+async function ensureOneToManyLookup(
+  prefix: string,
+  solutionUniqueName: string,
+  rel: LookupRelationshipDraft,
+  resolved: ResolvedRelationship,
+  log: DeploymentLogger,
+  result: DeploymentResult,
+): Promise<void> {
+  const definition = buildOneToManyRelationship(prefix, rel, resolved);
+  const relationshipSchemaName = String(definition.SchemaName ?? '');
+  const lookupColumnLogicalName = buildLogicalName(prefix, rel.lookupSchemaName);
+  if (relationshipSchemaName) {
+    const existingRel = await findRelationshipMetadataId(
+      resolved.parentLogicalName,
+      relationshipSchemaName,
+      resolved.childLogicalName,
+    );
+    if (existingRel) {
+      log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+      return;
+    }
+  }
+  const existingColumn = await findAttributeMetadataId(
+    resolved.childLogicalName,
+    lookupColumnLogicalName,
+  );
+  if (existingColumn) {
+    log('info', `Lookup "${rel.lookupDisplayName}" already exists — skipping.`);
+    return;
+  }
+  assertCloneable(`lookup "${rel.lookupDisplayName}"`, definition);
+  await createOneToMany(
+    definition,
+    solutionUniqueName,
+    resolved.parentLogicalName,
+    relationshipSchemaName || undefined,
+    resolved.childLogicalName,
+  );
+  result.createdRelationships += 1;
+  log(
+    'success',
+    `Created lookup "${rel.lookupDisplayName}" (${resolved.parentLogicalName} → ${resolved.childLogicalName}).`,
+  );
 }
 
 /** Create the publisher/solution if new, and return the solution unique name. */

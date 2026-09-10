@@ -1,5 +1,9 @@
 # Solution Creator
 
+[![npm](https://img.shields.io/npm/v/@lucas001-yt/pptb-solution-creator.svg?color=blue)](https://www.npmjs.com/package/@lucas001-yt/pptb-solution-creator)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/LucasHahne/PPTB_Solution_Creator/blob/main/LICENSE)
+[![Power Platform ToolBox](https://img.shields.io/badge/Power%20Platform-ToolBox-327dfb.svg)](https://docs.powerplatformtoolbox.com/tool-development)
+
 A [Power Platform ToolBox](https://docs.powerplatformtoolbox.com/tool-development) tool that lets you design and deploy Dataverse schema much faster than the maker portal. Create a new solution (or target an existing one), add tables, bulk-define columns of every common type, wire up 1:N lookups, review, and deploy — all from a single guided workflow.
 
 Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/package/@lucas001-yt/pptb-solution-creator)
@@ -53,6 +57,11 @@ Install from npm: [`@lucas001-yt/pptb-solution-creator`](https://www.npmjs.com/p
 - The connected user needs the **System Customizer** (or System Administrator) role to create publishers, solutions, tables, columns, and relationships.
 
 ## Update history
+
+### 1.1.7
+
+- **M:N relationships** — the Lookups step now supports many-to-many via an explicit bridge table (autonumber primary, two lookups). Defaults: display `Bridge {Left} {Right}`, schema `Bridge{Left}{Right}`, lookups `Lookup{Left}` / `Lookup{Right}` (all editable). Deploy creates the bridge table then the two lookups and shares the final publish.
+- **1:N lookup naming aligned** — Add lookup defaults to parent display name and schema `Lookup{Parent}` (same pattern as M:N), regenerating until you edit the fields.
 
 ### 1.1.6
 
